@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; padding: 20px; }
+        
+        /* --- OFFICIAL TN EB WATERMARK --- */
+        body::before {
+            content: "TN EB OFFICIAL"; 
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 10vw; 
+            color: rgba(255, 255, 255, 0.04); 
+            z-index: -1; 
+            pointer-events: none; 
+            white-space: nowrap;
+            font-weight: 900;
+            letter-spacing: 15px; 
+            text-transform: uppercase;
+        }
+
+        h2 { color: #00bcd4; margin-bottom: 5px; }
+        .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; max-width: 900px; margin: 20px auto; }
+        .card { background-color: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .card.special { border: 1px solid #bc8cff; background-color: #1a1525; } 
+        .title { font-size: 14px; color: #aaaaaa; text-transform: uppercase; letter-spacing: 1px; }
+        .title.special { color: #bc8cff; font-weight: bold; }
+        .value { font-size: 28px; font-weight: bold; margin-top: 10px; color: #4CAF50; }
+        .value.warning { color: #f44336; }
+        .value.lock { color: #d29922; }
+        .value.special { color: #bc8cff; }
+        
+        .controls { margin: 20px auto; max-width: 900px; padding: 20px; background-color: #1e1e1e; border-radius: 12px; }
+        .btn { border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; margin: 5px; color: white; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); }
+        .btn-on { background-color: #4CAF50; }
+        .btn-off { background-color: #f44336; }
+        
+        .btn-pdf { background-color: #58a6ff; color: #0d1117; width: 100%; max-width: 300px; margin-top: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-receipt { background-color: #238636; color: white; width: 100%; max-width: 300px; margin-top: 15px; display: none; align-items: center; justify-content: center; gap: 8px; }
+        
+        .btn-logout { background-color: #333; color: white; font-size: 12px; padding: 8px 15px; border-radius: 5px; cursor: pointer; border: none; margin-top: 20px; }
+        .graph-container { max-width: 900px; margin: auto; background-color: #1e1e1e; padding: 20px; border-radius: 12px; }
+    </style>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentMeterID = urlParams.get('meter');
+
+        if (!currentMeterID || sessionStorage.getItem("auth_" + currentMeterID) !== "true") {
+            alert("🔒 Unauthorized Access! Please log in first.");
+            window.location.href = "index.html"; 
+        }
+        function logoutCustomer() {
+            sessionStorage.removeItem("auth_" + currentMeterID); 
+            window.location.href = "index.html";
+        }
+    </script>
+</head>
+<body>
+
+    <h2 id="dashboard-title">⚡ Smart Meter Dashboard</h2>
+    <div id="meter-subtitle" class="subtitle">Loading...</div>
+    
+    <div class="grid">
+        <div class="card"><div class="title">Voltage</div><div id="v" class="value">-- V</div></div>
+        <div class="card"><div class="title">Current</div><div id="i" class="value">-- A</div></div>
+        <div class="card"><div class="title">Power</div><div id="p" class="value">-- W</div></div>
+        <div class="card"><div class="title">Units Consumed</div><div id="u" class="value">-- kWh</div></div>
+        <div class="card"><div class="title">Current Bill</div><div id="b" class="value">Rs. --</div></div>
+        
+        <div class="card special">
+            <div class="title special">60-Day Forecast</div>
+            <div id="est_bill" class="value special">Rs. --</div>
+        </div>
+
+        <div class="card"><div class="title">Relay Status</div><div id="relay" class="value" style="color:#00bcd4;">--</div></div>
+    </div>
+
+    <div class="controls">
+        <div class="title" style="margin-bottom: 15px;">Appliance Power Control</div>
+        <button class="btn btn-on" onclick="sendCommand('on')">Turn Power ON</button>
+        <button class="btn btn-off" onclick="sendCommand('off')">Turn Power OFF</button>
+        <br>
+        <button class="btn btn-pdf" onclick="generateInvoice()">📥 Download Official Invoice</button>
+        <button id="btn-receipt" class="btn btn-receipt" onclick="generateReceipt()">🧾 Download Payment Receipt</button>
+    </div>
+
+    <div class="graph-container">
+        <div class="title">Live Power Consumption (Watts)</div>
+        <canvas id="powerChart"></canvas>
+    </div>
+
+    <button class="btn-logout" onclick="logoutCustomer()">🚪 Log Out & Secure Session</button>
+
+    <script>
+        document.getElementById("meter-subtitle").innerText = "Logged in securely as: " + currentMeterID;
+
+        const firebaseConfig = { 
+            apiKey: "AIzaSyBKlLPHQpUqRuMl0MkjEdpd-HFnqoigjNg",
+            databaseURL: "https://smartmeter2026-a884f-default-rtdb.firebaseio.com" 
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let latestReceiptData = null; 
+
+        const ctx = document.getElementById('powerChart').getContext('2d');
+        const powerChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Watts', borderColor: '#00bcd4', backgroundColor: 'rgba(0, 188, 212, 0.2)', data: [], fill: true, tension: 0.4, borderWidth: 2 }] },
+            options: { scales: { x: { display: false }, y: { beginAtZero: true } }, animation: false, plugins: { legend: { display: false } } }
+        });
+
+        db.ref("CityGrid/" + currentMeterID).on("value", (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById("v").innerText = data.v + " V";
+                document.getElementById("i").innerText = data.i + " A";
+                document.getElementById("p").innerText = data.p + " W";
+                document.getElementById("u").innerText = data.u + " kWh";
+                document.getElementById("b").innerText = "Rs. " + data.b;
+                document.getElementById("est_bill").innerText = "Rs. " + (data.est_bill ? data.est_bill : "0.00");
+                
+                const relayEl = document.getElementById("relay");
+                relayEl.innerText = data.relay;
+                if(data.relay === "ON") relayEl.style.color = "#4CAF50";
+                else if(data.relay === "TAMPER LOCKED" || data.relay === "EB LOCKED") relayEl.style.color = "#d29922";
+                else relayEl.style.color = "#f44336";
+
+                const vEl = document.getElementById("v");
+                if(parseFloat(data.v) > 250) { vEl.classList.add("warning"); } else { vEl.classList.remove("warning"); }
+
+                if (data.last_receipt) {
+                    latestReceiptData = data.last_receipt;
+                    document.getElementById("btn-receipt").style.display = "inline-flex"; 
+                } else {
+                    document.getElementById("btn-receipt").style.display = "none";
+                }
+
+                const now = new Date().toLocaleTimeString();
+                powerChart.data.labels.push(now); powerChart.data.datasets[0].data.push(data.p);
+                if (powerChart.data.labels.length > 15) { powerChart.data.labels.shift(); powerChart.data.datasets[0].data.shift(); }
+                powerChart.update();
+            } else {
+                document.getElementById("meter-subtitle").innerText = "No data found for " + currentMeterID + ". Is the meter powered on?";
+                document.getElementById("meter-subtitle").style.color = "#ff9800";
+            }
+        });
+
+        function sendCommand(cmd) {
+            fetch('https://ntfy.sh/prakathees_meter_' + currentMeterID, { method: 'POST', body: cmd, headers: { 'Content-Type': 'text/plain' }})
+            .then(() => alert(`Command sent to ${currentMeterID}!`))
+            .catch(err => alert("Network error. Check ad-blockers."));
+        }
+
+        function generateInvoice() {
+            const date = new Date().toLocaleDateString();
+            const units = document.getElementById("u").innerText;
+            const bill = document.getElementById("b").innerText;
+            if (bill === "Rs. --") { alert("Wait for meter data!"); return; }
+
+            const invoiceHTML = `
+                <div style="padding: 40px; font-family: 'Segoe UI', Tahoma, sans-serif; color: #333; background: #fff; width: 600px; box-sizing: border-box;">
+                    <div style="text-align: center; border-bottom: 2px solid #238636; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #238636; margin: 0; font-size: 28px;">⚡ Electricity Board</h1>
+                        <p style="margin: 5px 0; font-size: 14px; color: #666;">Official Smart Grid Digital Invoice</p>
+                    </div>
+                    <table style="width: 100%; margin-bottom: 30px;">
+                        <tr>
+                            <td style="text-align: left;"><strong>Meter ID:</strong> <span style="color: #58a6ff;">${currentMeterID}</span></td>
+                            <td style="text-align: right;"><strong>Date Generated:</strong> ${date}</td>
+                        </tr>
+                    </table>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <tr style="background: #f6f8fa;">
+                            <th style="padding: 12px; border: 1px solid #d0d7de; text-align: left;">Description</th>
+                            <th style="padding: 12px; border: 1px solid #d0d7de; text-align: right;">Amount</th>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; border: 1px solid #d0d7de;">Total Units Consumed</td>
+                            <td style="padding: 12px; border: 1px solid #d0d7de; text-align: right;">${units}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; border: 1px solid #d0d7de; font-weight: bold; font-size: 18px;">Total Amount Payable</td>
+                            <td style="padding: 12px; border: 1px solid #d0d7de; text-align: right; font-weight: bold; font-size: 18px; color: #da3633;">${bill}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+            html2pdf().set({ margin: 0.5, filename: `EB_Invoice_${currentMeterID}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } }).from(invoiceHTML).save();
+        }
+
+        function generateReceipt() {
+            if (!latestReceiptData) return;
+            const receiptHTML = `
+                <div style="padding: 40px; font-family: 'Segoe UI', Tahoma, sans-serif; color: #333; background: #fff; width: 600px; box-sizing: border-box; position: relative;">
+                    <div style="position: absolute; top: 180px; right: 80px; opacity: 0.15; font-size: 100px; color: #238636; transform: rotate(-30deg); font-weight: bold; border: 10px solid #238636; padding: 10px 30px; border-radius: 20px;">PAID</div>
+                    <div style="text-align: center; border-bottom: 2px solid #58a6ff; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #58a6ff; margin: 0; font-size: 28px;">⚡ Electricity Board</h1>
+                        <p style="margin: 5px 0; font-size: 16px; color: #666; font-weight: bold;">OFFICIAL PAYMENT RECEIPT</p>
+                    </div>
+                    <table style="width: 100%; margin-bottom: 30px;">
+                        <tr>
+                            <td style="text-align: left; font-size: 16px;"><strong>Meter ID:</strong> <span style="color: #58a6ff;">${currentMeterID}</span></td>
+                            <td style="text-align: right; font-size: 16px;"><strong>Payment Date:</strong><br>${latestReceiptData.date}</td>
+                        </tr>
+                    </table>
+                    <div style="background-color: #e6ffed; border: 1px solid #238636; border-radius: 8px; padding: 20px; text-align: center; margin-top: 30px;">
+                        <p style="margin: 0; color: #238636; font-size: 18px;">Payment Successful</p>
+                        <h2 style="margin: 10px 0 0 0; font-size: 36px; color: #333;">Rs. ${latestReceiptData.amount}</h2>
+                    </div>
+                    <div style="margin-top: 50px; text-align: center; font-size: 12px; color: #8b949e;">
+                        <p>This is a system-generated digital receipt. No physical signature is required.</p>
+                        <p>Thank you for your prompt payment!</p>
+                    </div>
+                </div>
+            `;
+            html2pdf().set({ margin: 0.5, filename: `Payment_Receipt_${currentMeterID}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } }).from(receiptHTML).save();
+        }
+    </script>
+</body>
+</html>

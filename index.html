@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Grid Portal - Login</title>
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background-color: #161b22; padding: 40px; border-radius: 12px; border: 1px solid #30363d; box-shadow: 0 8px 24px rgba(0,0,0,0.5); width: 100%; max-width: 400px; text-align: center; }
+        h2 { color: #58a6ff; margin-top: 0; }
+        .toggle-container { display: flex; justify-content: center; margin-bottom: 25px; background-color: #21262d; border-radius: 8px; padding: 5px; }
+        .toggle-btn { flex: 1; padding: 10px; border: none; background: none; color: #8b949e; cursor: pointer; border-radius: 6px; font-weight: bold; transition: 0.3s; }
+        .toggle-btn.active { background-color: #58a6ff; color: #0d1117; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; font-size: 14px; margin-bottom: 5px; color: #8b949e; }
+        input { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #30363d; background-color: #0d1117; color: white; box-sizing: border-box; font-size: 16px; }
+        input:focus { outline: none; border-color: #58a6ff; }
+        .btn-submit { width: 100%; padding: 12px; border: none; border-radius: 6px; background-color: #238636; color: white; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .btn-submit:hover { background-color: #2ea043; }
+        .error-msg { color: #ff7b72; font-size: 14px; margin-bottom: 15px; display: none; }
+        .forgot-link { display: block; text-align: right; color: #58a6ff; font-size: 12px; text-decoration: none; margin-top: -5px; margin-bottom: 15px; cursor: pointer; }
+        .forgot-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="login-box">
+        <h2>⚡ Smart Grid Portal</h2>
+        
+        <div class="toggle-container">
+            <button class="toggle-btn active" id="btn-customer" onclick="setMode('customer')">Customer</button>
+            <button class="toggle-btn" id="btn-officer" onclick="setMode('officer')">EB Officer</button>
+        </div>
+
+        <div id="error-text" class="error-msg">Invalid Credentials.</div>
+
+        <div class="input-group">
+            <label id="label-id">Meter ID (e.g., House_001)</label>
+            <input type="text" id="input-id" placeholder="Enter ID">
+        </div>
+        
+        <div class="input-group">
+            <label id="label-pin">Customer Password</label>
+            <input type="password" id="input-pin" placeholder="Enter Password">
+        </div>
+
+        <a id="forgot-btn" class="forgot-link" onclick="forgotPassword()">Forgot Password?</a>
+
+        <button class="btn-submit" onclick="handleLogin()">Secure Login</button>
+    </div>
+
+    <script>
+        let currentMode = 'customer';
+
+        if (!localStorage.getItem("customerDB")) {
+            localStorage.setItem("customerDB", JSON.stringify({
+                "House_001": "1234",
+                "House_002": "5678",
+                "House_003": "abcd"
+            }));
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('error-text').style.display = 'none';
+            document.getElementById('input-id').value = '';
+            document.getElementById('input-pin').value = '';
+
+            if (mode === 'customer') {
+                document.getElementById('btn-customer').classList.add('active');
+                document.getElementById('btn-officer').classList.remove('active');
+                document.getElementById('label-id').innerText = 'Meter ID (e.g., House_001)';
+                document.getElementById('label-pin').innerText = 'Customer Password';
+                document.getElementById('forgot-btn').style.display = 'block';
+            } else {
+                document.getElementById('btn-officer').classList.add('active');
+                document.getElementById('btn-customer').classList.remove('active');
+                document.getElementById('label-id').innerText = 'Officer Admin ID';
+                document.getElementById('label-pin').innerText = 'Secure Master PIN';
+                document.getElementById('forgot-btn').style.display = 'none';
+            }
+        }
+
+        function handleLogin() {
+            const idVal = document.getElementById('input-id').value.trim();
+            const pinVal = document.getElementById('input-pin').value.trim();
+            const errorText = document.getElementById('error-text');
+            let db = JSON.parse(localStorage.getItem("customerDB"));
+
+            if (idVal === "" || pinVal === "") {
+                errorText.innerText = "Please enter both ID and Password.";
+                errorText.style.display = 'block';
+                return;
+            }
+
+            if (currentMode === 'customer') {
+                if (db[idVal] && db[idVal] === pinVal) {
+                    sessionStorage.setItem("auth_" + idVal, "true");
+                    window.location.href = `customer.html?meter=${idVal}`;
+                } else {
+                    errorText.innerText = "Invalid Meter ID or Password.";
+                    errorText.style.display = 'block';
+                }
+            } else {
+                if (idVal === "eb_admin" && pinVal === "2026") {
+                    sessionStorage.setItem("eb_auth", "true");
+                    window.location.href = "officer.html";
+                } else {
+                    errorText.innerText = "Access Denied. Invalid Admin Credentials.";
+                    errorText.style.display = 'block';
+                }
+            }
+        }
+
+        function forgotPassword() {
+            let u = prompt("Enter your Meter ID to reset your password:");
+            if (!u) return;
+            let db = JSON.parse(localStorage.getItem("customerDB"));
+            if (!db[u]) { alert("❌ Meter ID not found in the system."); return; }
+
+            let otp = prompt(`📱 An OTP has been sent to the registered mobile number for ${u}.\n\n(DEMO OVERRIDE: Your OTP is 9999)\n\nEnter the OTP to continue:`);
+            
+            if (otp === "9999") {
+                let newPass = prompt("✅ OTP Verified!\n\nEnter your NEW password:");
+                if (newPass && newPass.trim() !== "") {
+                    db[u] = newPass.trim();
+                    localStorage.setItem("customerDB", JSON.stringify(db));
+                    alert("🎉 Password reset successfully! You can now log in with your new password.");
+                } else { alert("Password reset cancelled."); }
+            } else { alert("❌ Invalid OTP. Reset cancelled."); }
+        }
+    </script>
+</body>
+</html>

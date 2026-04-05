@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electricity Board - Officer Grid Panel</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
+        
+        /* --- OFFICIAL TN EB WATERMARK --- */
+        body::before {
+            content: "TN EB OFFICIAL"; 
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 10vw; 
+            color: rgba(255, 255, 255, 0.04); 
+            z-index: -1; 
+            pointer-events: none; 
+            white-space: nowrap;
+            font-weight: 900;
+            letter-spacing: 15px; 
+            text-transform: uppercase;
+        }
+
+        h2 { color: #58a6ff; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 15px; }
+        .grid-container { max-width: 1200px; margin: 20px auto; background-color: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; box-shadow: 0 4px 10px rgba(0,0,0,0.5); overflow-x: auto; }
+        
+        .simulator-panel { background-color: #21262d; padding: 15px; border-radius: 8px; border: 1px dashed #58a6ff; margin-bottom: 20px; text-align: center; }
+        .simulator-panel input[type="range"] { width: 50%; margin: 10px 0; }
+        .day-badge { background: #58a6ff; color: #0d1117; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 16px; }
+
+        .search-container { text-align: left; margin-bottom: 15px; }
+        .search-bar { width: 100%; max-width: 300px; padding: 10px 15px; border-radius: 20px; border: 1px solid #30363d; background-color: #0d1117; color: white; font-size: 14px; outline: none; transition: 0.3s; }
+        .search-bar:focus { border-color: #58a6ff; box-shadow: 0 0 5px rgba(88, 166, 255, 0.5); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: center; border-bottom: 1px solid #30363d; font-size: 14px; }
+        th { background-color: #21262d; color: #8b949e; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+        .warning { color: #ff7b72; font-weight: bold; }
+        .safe { color: #3fb950; font-weight: bold; }
+        .lock { color: #d29922; font-weight: bold; }
+        .offline-text { color: #8b949e; font-style: italic; }
+        
+        .btn { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin: 2px; color: white; transition: 0.2s; }
+        .btn:active:not(:disabled) { transform: scale(0.95); }
+        .btn:disabled { background-color: #30363d; color: #8b949e; cursor: not-allowed; }
+        
+        .btn-warn { background-color: #d29922; color: #000; }
+        .btn-cut { background-color: #da3633; }
+        .btn-restore { background-color: #238636; }
+        
+        .total-load { text-align: center; font-size: 20px; color: #f2cc60; margin-bottom: 20px; font-weight: bold; }
+        .btn-logout { background-color: #30363d; color: #c9d1d9; font-size: 14px; padding: 10px 20px; border-radius: 6px; cursor: pointer; border: none; display: block; margin: 20px auto; }
+    </style>
+    
+    <script>
+        if (sessionStorage.getItem("eb_auth") !== "true") { window.location.href = "index.html"; }
+        function logoutOfficer() { sessionStorage.removeItem("eb_auth"); window.location.href = "index.html"; }
+    </script>
+</head>
+<body>
+
+    <h2>🏢 EB Master Control Room: City Grid Live View</h2>
+    
+    <div class="grid-container">
+        <div class="simulator-panel">
+            <h3 style="margin-top: 0; color: #8b949e; font-size: 14px;">⏳ PRESENTATION TOOL: Simulate Billing Cycle</h3>
+            <span class="day-badge">Day <span id="dayDisplay">0</span> / 60</span><br>
+            <input type="range" id="daySlider" min="0" max="70" value="0" oninput="updateDays()">
+            <p id="statusText" style="font-size: 12px; color: #3fb950;">Status: Normal Operations. Officer controls are locked.</p>
+        </div>
+
+        <div class="total-load" id="totalLoadDisplay">Total City Grid Load: 0 W</div>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-bar" onkeyup="searchMeters()" placeholder="🔍 Search Meter ID (e.g., House_001)...">
+        </div>
+
+        <table id="metersTable">
+            <thead>
+                <tr>
+                    <th>Meter ID</th>
+                    <th>Voltage</th>
+                    <th>Current</th>
+                    <th>Power</th>
+                    <th>Units</th>
+                    <th>Current Bill</th>
+                    <th>Relay Status</th>
+                    <th>Billing Actions</th>
+                </tr>
+            </thead>
+            <tbody id="meterTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <button class="btn-logout" onclick="logoutOfficer()">🚪 Log Out & Close Session</button>
+
+    <script>
+        const firebaseConfig = { 
+            apiKey: "AIzaSyBKlLPHQpUqRuMl0MkjEdpd-HFnqoigjNg",
+            databaseURL: "https://smartmeter2026-a884f-default-rtdb.firebaseio.com" 
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let simulatedDays = 0;
+        let globalSnapshot = null; 
+
+        const allCityMeters = [ "House_001", "House_002", "House_003", "Apartment_A1", "Shop_009" ];
+
+        function updateDays() {
+            simulatedDays = document.getElementById("daySlider").value;
+            document.getElementById("dayDisplay").innerText = simulatedDays;
+            
+            let statusEl = document.getElementById("statusText");
+            if (simulatedDays < 60) {
+                statusEl.innerText = "Status: Normal Operations. Officer controls are locked to prevent accidents.";
+                statusEl.style.color = "#3fb950";
+            } else if (simulatedDays >= 60 && simulatedDays < 65) {
+                statusEl.innerText = "Status: Billing Cycle Complete. 5-Day Grace Period Active. Warning Button Unlocked.";
+                statusEl.style.color = "#d29922";
+            } else {
+                statusEl.innerText = "Status: Payment Overdue! EB CUT Button Unlocked.";
+                statusEl.style.color = "#da3633";
+            }
+            if(globalSnapshot) drawTable(globalSnapshot);
+        }
+
+        db.ref("CityGrid").on("value", (snapshot) => {
+            globalSnapshot = snapshot;
+            drawTable(snapshot);
+        });
+
+        function drawTable(snapshot) {
+            const tableBody = document.getElementById("meterTableBody");
+            tableBody.innerHTML = ""; 
+            let totalCityPower = 0;
+            let liveData = snapshot.exists() ? snapshot.val() : {};
+
+            allCityMeters.forEach((houseID) => {
+                let data = liveData[houseID];
+
+                if (data) {
+                    totalCityPower += parseFloat(data.p || 0);
+
+                    let vColor = (parseFloat(data.v) > 250) ? "warning" : "safe";
+                    let relayColor = "safe";
+                    let isLocked = false;
+
+                    if (data.relay === "OFF") relayColor = "warning";
+                    if (data.relay === "EB LOCKED" || data.relay === "TAMPER LOCKED") { relayColor = "lock"; isLocked = true; }
+
+                    let warnBtn = `<button class="btn btn-warn" disabled>Send Warning</button>`;
+                    let cutBtn = `<button class="btn btn-cut" disabled>EB CUT</button>`;
+                    let restoreBtn = `<button class="btn btn-restore" disabled>Paid & Reset</button>`;
+
+                    if (isLocked) {
+                        restoreBtn = `<button class="btn btn-restore" onclick="handlePayment('${houseID}', '${data.b}', true)">Paid: Restore Power</button>`;
+                    } else {
+                        if (simulatedDays >= 60 && simulatedDays < 65) {
+                            warnBtn = `<button class="btn btn-warn" onclick="sendWarning('${houseID}', '${data.b}')">Send Warning</button>`;
+                            restoreBtn = `<button class="btn btn-restore" onclick="handlePayment('${houseID}', '${data.b}', false)">On-Time Payment</button>`;
+                        } else if (simulatedDays >= 65) {
+                            warnBtn = `<button class="btn btn-warn" onclick="sendWarning('${houseID}', '${data.b}')">Send Warning</button>`;
+                            cutBtn = `<button class="btn btn-cut" onclick="handleCut('${houseID}')">EB CUT</button>`;
+                            restoreBtn = `<button class="btn btn-restore" onclick="handlePayment('${houseID}', '${data.b}', false)">Late Payment</button>`;
+                        }
+                    }
+
+                    let row = `<tr class="meter-row">
+                        <td style="font-weight: bold; color: #58a6ff;">${houseID}</td>
+                        <td class="${vColor}">${data.v} V</td>
+                        <td>${data.i} A</td>
+                        <td>${data.p} W</td>
+                        <td>${data.u} kWh</td>
+                        <td style="color: #f2cc60; font-weight: bold;">Rs. ${data.b}</td>
+                        <td class="${relayColor}">${data.relay}</td>
+                        <td>${warnBtn} ${cutBtn} ${restoreBtn}</td>
+                    </tr>`;
+                    tableBody.innerHTML += row;
+                } else {
+                    let offlineRow = `<tr class="meter-row">
+                        <td style="font-weight: bold; color: #8b949e;">${houseID}</td>
+                        <td colspan="6" class="offline-text">🔌 Meter Offline / No Signal from Hardware</td>
+                        <td><button class="btn" disabled>Unavailable</button></td>
+                    </tr>`;
+                    tableBody.innerHTML += offlineRow;
+                }
+            });
+            document.getElementById("totalLoadDisplay").innerText = `Total City Grid Load: ${totalCityPower} W`;
+            searchMeters();
+        }
+
+        function searchMeters() {
+            let input = document.getElementById("searchInput").value.toUpperCase();
+            let table = document.getElementById("metersTable");
+            let tr = table.getElementsByClassName("meter-row");
+            for (let i = 0; i < tr.length; i++) {
+                let td = tr[i].getElementsByTagName("td")[0]; 
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(input) > -1) { tr[i].style.display = ""; } 
+                    else { tr[i].style.display = "none"; }
+                }       
+            }
+        }
+
+        function sendWarning(meterID, billAmount) {
+            let topic = "prakathees_meter_" + meterID;
+            let msg = `⚠️ URGENT: Your 60-Day Electricity Bill of Rs. ${billAmount} is due. Please pay within 5 days to avoid an immediate power cutoff.`;
+            fetch('https://ntfy.sh/' + topic, { method: 'POST', body: msg, headers: { 'Title': 'Electricity Board Notice' } })
+            .then(() => alert(`✅ Warning notice sent to ${meterID}'s mobile phone!`));
+        }
+
+        function handleCut(meterID) {
+            if(confirm(`🚨 WARNING: Are you sure you want to cut power to ${meterID}?`)) {
+                let topic = "prakathees_meter_" + meterID;
+                fetch('https://ntfy.sh/' + topic, { method: 'POST', body: 'eb_cut', headers: { 'Content-Type': 'text/plain' } })
+                .then(() => alert(`🛑 Power Cut signal dispatched to ${meterID}.`));
+            }
+        }
+
+        function handlePayment(meterID, lastBillAmount, wasLocked) {
+            let confirmMessage = wasLocked 
+                ? `💰 Confirm payment of Rs. ${lastBillAmount} for ${meterID}?\n\nThis will RESTORE the power and RESET units to 0.` 
+                : `💰 Confirm ON-TIME payment of Rs. ${lastBillAmount} for ${meterID}?\n\nPower is currently active. This will seamlessly RESET units to 0 without cutting the power.`;
+
+            if(confirm(confirmMessage)) {
+                let timestamp = new Date().toLocaleString();
+                db.ref("CityGrid/" + meterID + "/last_receipt").set({
+                    amount: lastBillAmount,
+                    date: timestamp
+                });
+
+                let topic = "prakathees_meter_" + meterID;
+
+                if (wasLocked) {
+                    fetch('https://ntfy.sh/' + topic, { method: 'POST', body: 'eb_restore', headers: { 'Content-Type': 'text/plain' } })
+                    .then(() => {
+                        setTimeout(() => { fetch('https://ntfy.sh/' + topic, { method: 'POST', body: 'reset', headers: { 'Content-Type': 'text/plain' } }); }, 1000);
+                        finalizePaymentUI(meterID);
+                    });
+                } else {
+                    fetch('https://ntfy.sh/' + topic, { method: 'POST', body: 'reset', headers: { 'Content-Type': 'text/plain' } })
+                    .then(() => { finalizePaymentUI(meterID); });
+                }
+            }
+        }
+
+        function finalizePaymentUI(meterID) {
+            document.getElementById("daySlider").value = 0;
+            updateDays();
+            alert(`✅ Payment confirmed! Receipt issued and billing cycle reset for ${meterID}.`);
+        }
+    </script>
+</body>
+</html>
