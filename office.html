@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Administrator Interface - City Grid</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { background-color: #f1f5f9; color: #1e293b; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; box-sizing: border-box; }
+        
+        .top-bar { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 20px auto; }
+        .lang-select { padding: 6px 12px; background-color: #ffffff; color: #1e3a8a; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; font-weight: 600; outline: none; font-size: 13px; }
+
+        h2 { color: #1e3a8a; margin: 0; font-weight: 600; font-size: 24px; }
+        .grid-container { max-width: 1200px; margin: 0 auto 20px auto; background-color: #ffffff; padding: 25px; border-radius: 6px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto; box-sizing: border-box; }
+        
+        .simulator-panel { background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 25px; text-align: center; }
+        .simulator-panel h3 { margin-top: 0; color: #475569; font-size: 14px; font-weight: 600; text-transform: uppercase; }
+        .simulator-panel input[type="range"] { width: 50%; margin: 10px 0; accent-color: #2563eb; cursor: pointer; }
+        .day-badge { background: #e0e7ff; color: #3730a3; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 14px; }
+
+        .search-container { text-align: left; margin-bottom: 15px; }
+        .search-bar { width: 100%; max-width: 300px; padding: 8px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background-color: #ffffff; color: #1e293b; font-size: 13px; outline: none; font-family: inherit; box-sizing: border-box; }
+        .search-bar:focus { border-color: #2563eb; }
+
+        /* Making tables highly responsive via horizontal scroll setup */
+        .table-responsive-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; min-width: 800px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+        th { background-color: #f8fafc; color: #64748b; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; font-weight: 600; }
+        
+        .warning { color: #dc2626; font-weight: 600; }
+        .safe { color: #16a34a; font-weight: 600; }
+        .lock { color: #d97706; font-weight: 600; }
+        .offline-text { color: #94a3b8; font-style: italic; }
+        
+        .btn { border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; margin: 2px; color: white; transition: 0.2s; display: inline-block; }
+        .btn:hover:not(:disabled) { opacity: 0.9; }
+        .btn:disabled { background-color: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+        
+        .btn-warn { background-color: #f59e0b; color: #fff; }
+        .btn-cut { background-color: #dc2626; }
+        .btn-restore { background-color: #16a34a; }
+        .btn-delete { background-color: #991b1b; color: #fff; } 
+        
+        @keyframes pulseAlert { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+        .btn-approve-disc { background-color: #dc2626; color: white; animation: pulseAlert 1.5s infinite; }
+
+        .req-badge { display: inline-block; background-color: #fef2f2; color: #b91c1c; border: 1px solid #f87171; font-size: 10px; padding: 2px 6px; border-radius: 2px; margin-top: 4px; font-weight: 600;}
+
+        .total-load { text-align: right; font-size: 16px; color: #1e3a8a; margin-bottom: 10px; font-weight: bold; }
+        .btn-logout { background-color: #475569; color: white; font-size: 13px; padding: 10px 20px; border-radius: 4px; cursor: pointer; border: none; display: block; margin: 20px auto; width: 100%; max-width: 300px; }
+        
+        .pending-header { color: #d97706; border-bottom: 2px solid #fde68a; padding-bottom: 10px; margin-bottom: 15px; text-align: left; font-size: 16px; font-weight: 600; text-transform: uppercase;}
+        #pending-container { display: none; }
+
+        /* --- MOBILE RESPONSIVENESS --- */
+        @media (max-width: 768px) {
+            .top-bar { flex-direction: column; text-align: center; gap: 15px; }
+            .grid-container { padding: 15px; }
+            .search-bar { max-width: 100%; }
+            .simulator-panel input[type="range"] { width: 90%; }
+            .total-load { text-align: center; font-size: 15px; margin-bottom: 15px; }
+            .btn { display: block; width: 100%; margin-bottom: 5px; box-sizing: border-box; } /* Stack buttons inside table on mobile */
+        }
+    </style>
+    
+    <script>
+        if (sessionStorage.getItem("eb_auth") !== "true") { window.location.href = "index.html"; }
+        function logoutOfficer() { sessionStorage.removeItem("eb_auth"); window.location.href = "index.html"; }
+    </script>
+</head>
+<body onload="loadPending()">
+
+    <div class="top-bar">
+        <h2 data-i18n="title">Administrator Interface - Grid Monitoring</h2>
+        <select id="lang-select" class="lang-select" onchange="changeLanguage()">
+            <option value="en">English (EN)</option>
+            <option value="ta">தமிழ் (TA)</option>
+            <option value="hi">हिन्दी (HI)</option>
+        </select>
+    </div>
+
+    <div class="grid-container" id="pending-container">
+        <div class="pending-header" data-i18n="pend_title">Pending Connection Requests</div>
+        <div class="table-responsive-wrapper">
+            <table>
+                <thead>
+                    <tr><th data-i18n="th_name">Applicant Name</th><th data-i18n="th_phone">Contact</th><th data-i18n="th_id_proof">Documentation ID</th><th data-i18n="th_addr">Installation Address</th><th data-i18n="th_act_pend">Action</th></tr>
+                </thead>
+                <tbody id="pendingTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="grid-container">
+        <div class="simulator-panel">
+            <h3 data-i18n="sim_title">Billing Cycle Simulation Environment</h3>
+            <span class="day-badge"><span data-i18n="txt_day">Day</span> <span id="dayDisplay">0</span> / 60</span><br>
+            <input type="range" id="daySlider" min="0" max="70" value="0" oninput="updateDays()">
+            <p id="statusText" style="font-size: 13px; color: #16a34a; font-weight: 600; margin-bottom: 0;" data-i18n="stat_norm">System Status: Optimal. Enforcement actions disabled.</p>
+        </div>
+
+        <div class="total-load" id="totalLoadDisplay">Aggregate Grid Load: 0 W</div>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-bar" onkeyup="searchMeters()" placeholder="Search Identity Record...">
+        </div>
+
+        <div class="table-responsive-wrapper">
+            <table id="metersTable">
+                <thead>
+                    <tr>
+                        <th data-i18n="th_id">Node ID</th><th data-i18n="th_v">Voltage</th><th data-i18n="th_i">Current</th><th data-i18n="th_p">Power</th>
+                        <th data-i18n="th_u">Consumption</th><th data-i18n="th_b">Arrears</th><th data-i18n="th_relay">Relay State</th><th data-i18n="th_act">Enforcement Controls</th>
+                    </tr>
+                </thead>
+                <tbody id="meterTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <button class="btn-logout" onclick="logoutOfficer()" data-i18n="btn_logout">Terminate Admin Session</button>
+
+    <script>
+        const translations = {
+            en: { title: "Administrator Interface - Grid Monitoring", pend_title: "Pending Connection Requests", sim_title: "Billing Cycle Simulation Environment", txt_day: "Day", stat_norm: "System Status: Optimal. Enforcement actions disabled.", stat_grace: "System Status: Grace Period Active. Warning dispatch authorized.", stat_over: "System Status: Delinquent. Disconnection authorized.", tot_load: "Aggregate Grid Load: {w} W", ph_search: "Search Identity Record...", th_name: "Applicant Name", th_phone: "Contact", th_id_proof: "Documentation ID", th_addr: "Installation Address", th_act_pend: "Action", th_id: "Node ID", th_v: "Voltage", th_i: "Current", th_p: "Power", th_u: "Consumption", th_b: "Arrears", th_relay: "Relay State", th_act: "Enforcement Controls", btn_appr: "Authorize", btn_rej: "Decline", btn_warn: "Dispatch Warning", btn_cut: "Halt Supply", btn_rest_paid: "Restore (Paid)", btn_rest_on: "Log Remittance", btn_rest_late: "Log Late Remittance", txt_offline: "Node Unresponsive / Offline", btn_unav: "N/A", btn_logout: "Terminate Admin Session", txt_req_disc: "TERMINATION REQ", btn_appr_disc: "Authorize Deletion", conf_del: "ADMINISTRATIVE OVERRIDE: Proceed with permanent deletion of Node {id}? Data cannot be recovered.", alert_del: "Node {id} successfully purged from the registry." },
+            ta: { title: "நிர்வாக இடைமுகம் - கட்ட அமைப்பு கண்காணிப்பு", pend_title: "நிலுவையில் உள்ள கோரிக்கைகள்", sim_title: "பில்லிங் சுழற்சி உருவகப்படுத்துதல்", txt_day: "நாள்", stat_norm: "கணினி நிலை: உகந்தது. கட்டுப்பாடுகள் முடக்கப்பட்டுள்ளன.", stat_grace: "கணினி நிலை: சலுகை காலம். எச்சரிக்கை அனுமதிக்கப்பட்டுள்ளது.", stat_over: "கணினி நிலை: காலம் கடந்தது. மின் துண்டிப்பு அனுமதிக்கப்பட்டுள்ளது.", tot_load: "மொத்த மின் சுமை: {w} W", ph_search: "பதிவைத் தேடுக...", th_name: "விண்ணப்பதாரர்", th_phone: "தொடர்பு", th_id_proof: "ஆவண எண்", th_addr: "நிறுவல் முகவரி", th_act_pend: "செயல்", th_id: "முனை (Node) எண்", th_v: "மின்னழுத்தம்", th_i: "மின்னோட்டம்", th_p: "மின்சக்தி", th_u: "பயன்பாடு", th_b: "நிலுவைத் தொகை", th_relay: "ரிலே நிலை", th_act: "கட்டுப்பாடுகள்", btn_appr: "அங்கீகரி", btn_rej: "நிராகரி", btn_warn: "எச்சரி", btn_cut: "துண்டி", btn_rest_paid: "மீட்டமை", btn_rest_on: "கட்டணம் பதிவு", btn_rest_late: "தாமத கட்டணம் பதிவு", txt_offline: "முனை ஆஃப்லைன்", btn_unav: "இல்லை", btn_logout: "அமர்வை முடி", txt_req_disc: "நிறுத்த கோரிக்கை", btn_appr_disc: "நீக்கத்தை அனுமதி", conf_del: "நிர்வாகிகான எச்சரிக்கை: {id} ஐ நிரந்தரமாக நீக்க வேண்டுமா?", alert_del: "பதிவேட்டிலிருந்து {id} நீக்கப்பட்டது." },
+            hi: { title: "प्रशासक इंटरफ़ेस - ग्रिड मॉनिटरिंग", pend_title: "लंबित कनेक्शन अनुरोध", sim_title: "बिलिंग चक्र अनुकरण", txt_day: "दिन", stat_norm: "सिस्टम स्थिति: इष्टतम। कार्रवाई अक्षम है।", stat_grace: "सिस्टम स्थिति: अनुग्रह अवधि। चेतावनी अधिकृत।", stat_over: "सिस्टम स्थिति: अतिदेय। वियोग अधिकृत।", tot_load: "कुल ग्रिड लोड: {w} W", ph_search: "रिकॉर्ड खोजें...", th_name: "आवेदक", th_phone: "संपर्क", th_id_proof: "दस्तावेज़ आईडी", th_addr: "स्थापना का पता", th_act_pend: "कार्रवाई", th_id: "नोड आईडी", th_v: "वोल्टेज", th_i: "करंट", th_p: "पावर", th_u: "खपत", th_b: "बकाया", th_relay: "रिले स्थिति", th_act: "प्रवर्तन नियंत्रण", btn_appr: "अधिकृत करें", btn_rej: "अस्वीकार करें", btn_warn: "चेतावनी भेजें", btn_cut: "आपूर्ति रोकें", btn_rest_paid: "बहाल करें", btn_rest_on: "भुगतान लॉग करें", btn_rest_late: "देर से भुगतान लॉग करें", txt_offline: "नोड अनुत्तरदायी", btn_unav: "उपलब्ध नहीं", btn_logout: "सत्र समाप्त करें", txt_req_disc: "समाप्ति अनुरोध", btn_appr_disc: "विलोपन अधिकृत करें", conf_del: "प्रशासनिक ओवरराइड: क्या आप नोड {id} को स्थायी रूप से हटाना चाहते हैं?", alert_del: "नोड {id} को सफलतापूर्वक हटा दिया गया।" }
+        };
+
+        let currentLang = "en";
+        function changeLanguage() { currentLang = document.getElementById("lang-select").value; document.querySelectorAll("[data-i18n]").forEach(el => { const key = el.getAttribute("data-i18n"); if (translations[currentLang][key]) el.innerText = translations[currentLang][key]; }); document.getElementById('searchInput').placeholder = translations[currentLang].ph_search; loadPending(); updateDays(); }
+        const firebaseConfig = { apiKey: "AIzaSyBKlLPHQpUqRuMl0MkjEdpd-HFnqoigjNg", databaseURL: "https://smartmeter2026-a884f-default-rtdb.firebaseio.com" };
+        firebase.initializeApp(firebaseConfig); const db = firebase.database();
+        let simulatedDays = 0; let globalSnapshot = null; 
+
+        function loadPending() {
+            let pendingApps = JSON.parse(localStorage.getItem("pendingDB") || "[]"); let tbody = document.getElementById("pendingTableBody"); tbody.innerHTML = "";
+            if (pendingApps.length > 0) {
+                document.getElementById("pending-container").style.display = "block";
+                pendingApps.forEach((app, index) => {
+                    let tr = document.createElement("tr");
+                    tr.innerHTML = `<td style="font-weight: 600;">${app.name}</td><td>${app.phone}</td><td>${app.idProof}</td><td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${app.addr}</td><td><button class="btn btn-restore" onclick="approveApp(${index})">${translations[currentLang].btn_appr}</button> <button class="btn btn-cut" onclick="rejectApp(${index})">${translations[currentLang].btn_rej}</button></td>`;
+                    tbody.appendChild(tr);
+                });
+            } else { document.getElementById("pending-container").style.display = "none"; }
+        }
+
+        function approveApp(index) {
+            let pendingApps = JSON.parse(localStorage.getItem("pendingDB") || "[]"); let app = pendingApps[index];
+            const randomNum = Math.floor(Math.random() * 9000) + 1000; const newId = "NODE_" + randomNum;
+            let custDb = JSON.parse(localStorage.getItem("customerDB") || "{}"); custDb[newId] = app.pin; localStorage.setItem("customerDB", JSON.stringify(custDb));
+            db.ref("CityGrid/" + newId).set({ v: 0, i: 0, p: 0, u: 0, b: "0.00", est_bill: "0.00", relay: "ON", surrender_request: false });
+            pendingApps.splice(index, 1); localStorage.setItem("pendingDB", JSON.stringify(pendingApps));
+            alert(`AUTHORIZATION COMPLETE.\n\nHardware assigned to network.\nNode ID: ${newId}`); loadPending();
+        }
+
+        function rejectApp(index) { if (confirm("Decline and discard this application?")) { let pendingApps = JSON.parse(localStorage.getItem("pendingDB") || "[]"); pendingApps.splice(index, 1); localStorage.setItem("pendingDB", JSON.stringify(pendingApps)); loadPending(); } }
+        function removeCustomer(meterID) { if (confirm(translations[currentLang].conf_del.replace("{id}", meterID))) { db.ref("CityGrid/" + meterID).remove(); let custDb = JSON.parse(localStorage.getItem("customerDB") || "{}"); if (custDb[meterID]) { delete custDb[meterID]; localStorage.setItem("customerDB", JSON.stringify(custDb)); } alert(translations[currentLang].alert_del.replace("{id}", meterID)); } }
+
+        function updateDays() {
+            simulatedDays = document.getElementById("daySlider").value; document.getElementById("dayDisplay").innerText = simulatedDays;
+            let statusEl = document.getElementById("statusText");
+            if (simulatedDays < 60) { statusEl.innerText = translations[currentLang].stat_norm; statusEl.style.color = "#16a34a"; } 
+            else if (simulatedDays >= 60 && simulatedDays < 65) { statusEl.innerText = translations[currentLang].stat_grace; statusEl.style.color = "#d97706"; } 
+            else { statusEl.innerText = translations[currentLang].stat_over; statusEl.style.color = "#dc2626"; }
+            if(globalSnapshot) drawTable(globalSnapshot);
+        }
+
+        db.ref("CityGrid").on("value", (snapshot) => { globalSnapshot = snapshot; drawTable(snapshot); });
+
+        function drawTable(snapshot) {
+            const tableBody = document.getElementById("meterTableBody"); tableBody.innerHTML = ""; 
+            let totalCityPower = 0; let liveData = snapshot.exists() ? snapshot.val() : {};
+            let custDb = JSON.parse(localStorage.getItem("customerDB") || "{}");
+            let allMeters = Array.from(new Set([...Object.keys(custDb), ...Object.keys(liveData)]));
+
+            allMeters.forEach((houseID) => {
+                let data = liveData[houseID];
+
+                if (data) {
+                    totalCityPower += parseFloat(data.p || 0);
+
+                    let vColor = (parseFloat(data.v) > 250) ? "warning" : "safe";
+                    let relayColor = "safe"; let isLocked = false;
+                    if (data.relay === "OFF") relayColor = "warning";
+                    if (data.relay === "EB LOCKED" || data.relay === "TAMPER LOCKED") { relayColor = "lock"; isLocked = true; }
+
+                    let warnBtn = `<button class="btn btn-warn" disabled>${translations[currentLang].btn_warn}</button>`;
+                    let cutBtn = `<button class="btn btn-cut" disabled>${translations[currentLang].btn_cut}</button>`;
+                    let restoreBtn = `<button class="btn btn-restore" disabled>${translations[currentLang].btn_rest_paid}</button>`;
+                    
+                    let isRequested = data.surrender_request === true;
+                    let idDisplay = isRequested ? `<span style="color: #dc2626; font-weight: bold;">${houseID}<br><span class="req-badge">${translations[currentLang].txt_req_disc}</span></span>` : `<span style="font-weight: 600; color: #2563eb;">${houseID}</span>`;
+                    let deleteBtn = isRequested ? `<button class="btn btn-approve-disc" onclick="removeCustomer('${houseID}')">${translations[currentLang].btn_appr_disc}</button>` : ``;
+
+                    if (isLocked) { restoreBtn = `<button class="btn btn-restore" onclick="handlePayment('${houseID}', '${data.b}', true)">${translations[currentLang].btn_rest_paid}</button>`; } 
+                    else {
+                        if (simulatedDays >= 60 && simulatedDays < 65) { warnBtn = `<button class="btn btn-warn" onclick="sendWarning('${houseID}', '${data.b}')">${translations[currentLang].btn_warn}</button>`; restoreBtn = `<button class="btn btn-restore" onclick="handlePayment('${houseID}', '${data.b}', false)">${translations[currentLang].btn_rest_on}</button>`; } 
+                        else if (simulatedDays >= 65) { warnBtn = `<button class="btn btn-warn" onclick="sendWarning('${houseID}', '${data.b}')">${translations[currentLang].btn_warn}</button>`; cutBtn = `<button class="btn btn-cut" onclick="handleCut('${houseID}')">${translations[currentLang].btn_cut}</button>`; restoreBtn = `<button class="btn btn-restore" onclick="handlePayment('${houseID}', '${data.b}', false)">${translations[currentLang].btn_rest_late}</button>`; }
+                    }
+
+                    tableBody.innerHTML += `<tr class="meter-row"><td>${idDisplay}</td><td class="${vColor}">${data.v} V</td><td>${data.i} A</td><td>${data.p} W</td><td>${data.u} kWh</td><td style="color: #475569; font-weight: 600;">Rs. ${data.b}</td><td class="${relayColor}">${data.relay}</td><td>${warnBtn} ${cutBtn} ${restoreBtn} ${deleteBtn}</td></tr>`;
+                } else {
+                    let deleteBtn = `<button class="btn btn-delete" onclick="removeCustomer('${houseID}')">Purge Record</button>`;
+                    tableBody.innerHTML += `<tr class="meter-row"><td style="font-weight: 600; color: #64748b;">${houseID}</td><td colspan="6" class="offline-text">${translations[currentLang].txt_offline}</td><td>${deleteBtn}</td></tr>`;
+                }
+            });
+            document.getElementById("totalLoadDisplay").innerText = translations[currentLang].tot_load.replace("{w}", totalCityPower); searchMeters();
+        }
+
+        function searchMeters() { let input = document.getElementById("searchInput").value.toUpperCase(); let tr = document.getElementById("metersTable").getElementsByClassName("meter-row"); for (let i = 0; i < tr.length; i++) { let td = tr[i].getElementsByTagName("td")[0]; if (td) { let txtValue = td.textContent || td.innerText; tr[i].style.display = txtValue.toUpperCase().indexOf(input) > -1 ? "" : "none"; } } }
+        function sendWarning(meterID, billAmount) { fetch('https://ntfy.sh/prakathees_meter_' + meterID, { method: 'POST', body: `OFFICIAL NOTICE: Outstanding balance Rs. ${billAmount}. Remit immediately to prevent disconnection.`, headers: { 'Title': 'Grid Administration Notice' } }).then(() => alert(`Notice dispatched to Node ${meterID}`)); }
+        function handleCut(meterID) { if(confirm(`Confirm halt of supply to Node ${meterID}?`)) fetch('https://ntfy.sh/prakathees_meter_' + meterID, { method: 'POST', body: 'eb_cut', headers: { 'Content-Type': 'text/plain' } }); }
+        
+        function handlePayment(meterID, bill, wasLocked) {
+            if(confirm(`Confirm remittance log of Rs. ${bill} for Node ${meterID}?`)) {
+                db.ref("CityGrid/" + meterID + "/last_receipt").set({ amount: bill, date: new Date().toLocaleString() }); let topic = "prakathees_meter_" + meterID;
+                if (wasLocked) { fetch('https://ntfy.sh/' + topic, { method: 'POST', body: 'eb_restore', headers: { 'Content-Type': 'text/plain' } }).then(() => setTimeout(() => { fetch('https://ntfy.sh/' + topic, { method: 'POST', body: 'reset' }); }, 1000)); } else { fetch('https://ntfy.sh/' + topic, { method: 'POST', body: 'reset', headers: { 'Content-Type': 'text/plain' } }); }
+                document.getElementById("daySlider").value = 0; updateDays(); alert(`Remittance logged for Node ${meterID}.`);
+            }
+        }
+    </script>
+</body>
+</html>

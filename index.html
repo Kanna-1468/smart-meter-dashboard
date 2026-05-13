@@ -2,133 +2,130 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Grid Portal - Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Grid Enterprise Portal</title>
     <style>
-        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-box { background-color: #161b22; padding: 40px; border-radius: 12px; border: 1px solid #30363d; box-shadow: 0 8px 24px rgba(0,0,0,0.5); width: 100%; max-width: 400px; text-align: center; }
-        h2 { color: #58a6ff; margin-top: 0; }
-        .toggle-container { display: flex; justify-content: center; margin-bottom: 25px; background-color: #21262d; border-radius: 8px; padding: 5px; }
-        .toggle-btn { flex: 1; padding: 10px; border: none; background: none; color: #8b949e; cursor: pointer; border-radius: 6px; font-weight: bold; transition: 0.3s; }
-        .toggle-btn.active { background-color: #58a6ff; color: #0d1117; }
-        .input-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; font-size: 14px; margin-bottom: 5px; color: #8b949e; }
-        input { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #30363d; background-color: #0d1117; color: white; box-sizing: border-box; font-size: 16px; }
-        input:focus { outline: none; border-color: #58a6ff; }
-        .btn-submit { width: 100%; padding: 12px; border: none; border-radius: 6px; background-color: #238636; color: white; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; }
-        .btn-submit:hover { background-color: #2ea043; }
-        .error-msg { color: #ff7b72; font-size: 14px; margin-bottom: 15px; display: none; }
-        .forgot-link { display: block; text-align: right; color: #58a6ff; font-size: 12px; text-decoration: none; margin-top: -5px; margin-bottom: 15px; cursor: pointer; }
-        .forgot-link:hover { text-decoration: underline; }
+        body { background-color: #f3f4f6; color: #1f2937; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; position: relative;}
+        
+        .lang-container { position: absolute; top: 20px; right: 20px; z-index: 10; }
+        .lang-select { padding: 8px 12px; background-color: #ffffff; color: #1e3a8a; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; font-weight: 600; outline: none; font-size: 14px; }
+        .lang-select:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
+
+        .login-box { background-color: #ffffff; padding: 40px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); width: 100%; max-width: 420px; text-align: left; box-sizing: border-box; margin-top: 40px; }
+        h2 { color: #1e3a8a; margin-top: 0; text-align: center; font-size: 22px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 25px; }
+        
+        .toggle-container { display: flex; justify-content: center; margin-bottom: 25px; background-color: #f1f5f9; border-radius: 6px; padding: 4px; border: 1px solid #e2e8f0; }
+        .toggle-btn { flex: 1; padding: 8px 12px; border: none; background: none; color: #64748b; cursor: pointer; border-radius: 4px; font-weight: 600; font-size: 14px; transition: 0.2s; }
+        .toggle-btn.active { background-color: #ffffff; color: #1e3a8a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #475569; }
+        input, textarea { width: 100%; padding: 10px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background-color: #ffffff; color: #1f2937; box-sizing: border-box; font-size: 14px; font-family: inherit; transition: border-color 0.2s; }
+        input:focus, textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
+        textarea { resize: vertical; min-height: 80px; }
+        
+        .btn-submit { width: 100%; padding: 12px; border: none; border-radius: 4px; background-color: #2563eb; color: white; font-weight: 600; font-size: 14px; cursor: pointer; transition: background-color 0.2s; }
+        .btn-submit:hover { background-color: #1d4ed8; }
+        .btn-secondary { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; margin-top: 12px; }
+        .btn-secondary:hover { background-color: #e2e8f0; }
+        
+        .error-msg { background-color: #fef2f2; color: #b91c1c; padding: 10px; border-radius: 4px; border: 1px solid #f87171; font-size: 13px; margin-bottom: 20px; display: none; text-align: center; }
+        .forgot-link { display: block; text-align: right; color: #2563eb; font-size: 13px; text-decoration: none; margin-top: -10px; margin-bottom: 20px; cursor: pointer; font-weight: 500; }
+        
+        .hidden { display: none !important; }
+        #register-section { max-height: 90vh; overflow-y: auto; }
+        .header-subtext { color: #64748b; font-size: 13px; text-align: center; margin-top: -20px; margin-bottom: 25px; }
+
+        /* --- MOBILE RESPONSIVENESS --- */
+        @media (max-width: 480px) {
+            .lang-container { position: static; margin-bottom: 20px; text-align: center; width: 100%; }
+            .login-box { padding: 25px 20px; margin-top: 0; }
+            h2 { font-size: 20px; }
+            .toggle-btn { font-size: 13px; padding: 8px; }
+            .btn-submit { padding: 14px; font-size: 15px; } /* Larger touch target */
+        }
     </style>
 </head>
 <body>
 
-    <div class="login-box">
-        <h2>⚡ Smart Grid Portal</h2>
+    <div class="lang-container">
+        <select id="lang-select" class="lang-select" onchange="changeLanguage()">
+            <option value="en">English (EN)</option>
+            <option value="ta">தமிழ் (TA)</option>
+            <option value="hi">हिन्दी (HI)</option>
+        </select>
+    </div>
+
+    <div id="login-section" class="login-box">
+        <h2 data-i18n="title">Smart Grid Enterprise Portal</h2>
         
         <div class="toggle-container">
-            <button class="toggle-btn active" id="btn-customer" onclick="setMode('customer')">Customer</button>
-            <button class="toggle-btn" id="btn-officer" onclick="setMode('officer')">EB Officer</button>
+            <button class="toggle-btn active" id="btn-customer" onclick="setMode('customer')" data-i18n="btn_cust">Customer Portal</button>
+            <button class="toggle-btn" id="btn-officer" onclick="setMode('officer')" data-i18n="btn_off">Administrator</button>
         </div>
 
         <div id="error-text" class="error-msg">Invalid Credentials.</div>
 
         <div class="input-group">
-            <label id="label-id">Meter ID (e.g., House_001)</label>
+            <label id="label-id" data-i18n="lbl_id_cust">Meter Identification Number</label>
             <input type="text" id="input-id" placeholder="Enter ID">
         </div>
         
         <div class="input-group">
-            <label id="label-pin">Customer Password</label>
+            <label id="label-pin" data-i18n="lbl_pin_cust">Account Password</label>
             <input type="password" id="input-pin" placeholder="Enter Password">
         </div>
 
-        <a id="forgot-btn" class="forgot-link" onclick="forgotPassword()">Forgot Password?</a>
+        <a id="forgot-btn" class="forgot-link" onclick="forgotPassword()" data-i18n="btn_forgot">Forgot Password?</a>
 
-        <button class="btn-submit" onclick="handleLogin()">Secure Login</button>
+        <button class="btn-submit" onclick="handleLogin()" data-i18n="btn_login">Authenticate</button>
+        <button id="btn-show-register" class="btn-submit btn-secondary" onclick="toggleViews('register')" data-i18n="btn_reg">Apply for New Connection</button>
+    </div>
+
+    <div id="register-section" class="login-box hidden">
+        <h2 data-i18n="title_apply">New Connection Application</h2>
+        <p class="header-subtext" data-i18n="desc_apply">Please provide official details for meter allocation.</p>
+
+        <div class="input-group">
+            <label data-i18n="lbl_name">Full Legal Name</label>
+            <input type="text" id="reg-name" placeholder="Enter full name">
+        </div>
+
+        <div class="input-group">
+            <label data-i18n="lbl_phone">Registered Mobile Number</label>
+            <input type="tel" id="reg-phone" placeholder="10-digit number">
+        </div>
+        
+        <div class="input-group">
+            <label data-i18n="lbl_id_proof">Official ID Proof (Aadhaar / PAN)</label>
+            <input type="text" id="reg-id-proof" placeholder="Enter ID number">
+        </div>
+
+        <div class="input-group">
+            <label data-i18n="lbl_addr">Installation Address</label>
+            <textarea id="reg-addr" placeholder="Enter full address"></textarea>
+        </div>
+
+        <button class="btn-submit" onclick="submitApplication()" data-i18n="btn_submit_app">Submit Application</button>
+        <button class="btn-submit btn-secondary" onclick="toggleViews('login')" data-i18n="btn_cancel">Cancel / Return</button>
     </div>
 
     <script>
-        let currentMode = 'customer';
+        const translations = {
+            en: { title: "Smart Grid Enterprise Portal", btn_cust: "Customer Portal", btn_off: "Administrator", lbl_id_cust: "Meter Identification Number", lbl_id_admin: "Administrator ID", ph_id: "Enter ID", lbl_pin_cust: "Account Password", lbl_pin_admin: "Security PIN", ph_pin: "Enter Password", btn_forgot: "Forgot Password?", btn_login: "Authenticate", btn_reg: "Apply for New Connection", err_empty: "All fields are required.", err_invalid_cust: "Invalid credentials or pending approval.", err_invalid_admin: "Authorization failed. Invalid credentials.", prompt_reset_id: "Enter your Meter ID for password reset:", alert_not_found: "Record not found in the system.", prompt_otp: "An OTP has been dispatched to the registered mobile number for {u}.\n\n(Simulation Override: OTP is 9999)\n\nEnter OTP:", prompt_new_pass: "Authentication successful.\n\nEnter new password:", alert_reset_cancel: "Password reset sequence aborted.", alert_reset_success: "Password updated successfully. Proceed to login.", alert_otp_fail: "Authentication failed. Invalid OTP.", title_apply: "New Connection Application", desc_apply: "Please provide official details for meter allocation.", lbl_name: "Full Legal Name", lbl_phone: "Registered Mobile Number", lbl_id_proof: "Official ID Proof (Aadhaar / PAN)", lbl_addr: "Installation Address", btn_submit_app: "Submit Application", btn_cancel: "Cancel / Return", ph_name: "Enter full name", ph_phone: "10-digit number", ph_id_proof: "Enter ID number", ph_addr: "Enter full address", err_reg_empty: "Incomplete form. Please fill all required fields.", prompt_new_pass_req: "Assign a secure password for your future dashboard:", msg_app_submitted: "APPLICATION RECORDED\n\nYour details have been submitted for official verification. You will be notified upon approval." },
+            ta: { title: "ஸ்மார்ட் கிரிட் போர்ட்டல்", btn_cust: "வாடிக்கையாளர் தளம்", btn_off: "நிர்வாகி", lbl_id_cust: "மீட்டர் அடையாள எண்", lbl_id_admin: "நிர்வாகி அடையாள எண்", ph_id: "ID-ஐ உள்ளிடவும்", lbl_pin_cust: "கணக்கு கடவுச்சொல்", lbl_pin_admin: "பாதுகாப்பு பின் (PIN)", ph_pin: "கடவுச்சொல்லை உள்ளிடவும்", btn_forgot: "கடவுச்சொல்லை மறந்துவிட்டீர்களா?", btn_login: "உள்நுழைக", btn_reg: "புதிய மின் இணைப்புக்கு விண்ணப்பிக்க", err_empty: "அனைத்து புலங்களும் தேவை.", err_invalid_cust: "தவறான சான்றுகள் அல்லது ஒப்புதல் நிலுவையில் உள்ளது.", err_invalid_admin: "அனுமதி மறுக்கப்பட்டது.", prompt_reset_id: "கடவுச்சொல்லை மாற்ற மீட்டர் எண்ணை உள்ளிடவும்:", alert_not_found: "கணினியில் பதிவு இல்லை.", prompt_otp: "OTP அனுப்பப்பட்டுள்ளது.\n\n(Simulation: OTP 9999)\n\nOTP-ஐ உள்ளிடவும்:", prompt_new_pass: "சரிபார்க்கப்பட்டது.\n\nபுதிய கடவுச்சொல்லை உள்ளிடவும்:", alert_reset_cancel: "செயல்முறை ரத்து செய்யப்பட்டது.", alert_reset_success: "கடவுச்சொல் புதுப்பிக்கப்பட்டது.", alert_otp_fail: "தவறான OTP.", title_apply: "புதிய இணைப்பு விண்ணப்பம்", desc_apply: "மீட்டர் ஒதுக்கீட்டிற்கான அதிகாரப்பூர்வ விவரங்களை வழங்கவும்.", lbl_name: "முழு சட்டப்பூர்வ பெயர்", lbl_phone: "பதிவு செய்யப்பட்ட மொபைல் எண்", lbl_id_proof: "அடையாள ஆவணம் (ஆதார் / பான்)", lbl_addr: "நிறுவல் முகவரி", btn_submit_app: "விண்ணப்பத்தை சமர்ப்பிக்கவும்", btn_cancel: "ரத்து செய் / திரும்புக", ph_name: "முழு பெயரை உள்ளிடவும்", ph_phone: "10 இலக்க எண்", ph_id_proof: "எண்ணை உள்ளிடவும்", ph_addr: "முழு முகவரியை உள்ளிடவும்", err_reg_empty: "அனைத்து விவரங்களையும் நிரப்பவும்.", prompt_new_pass_req: "உங்கள் புதிய கணக்கிற்கான கடவுச்சொல்லை உருவாக்கவும்:", msg_app_submitted: "விண்ணப்பம் பதிவு செய்யப்பட்டது\n\nஉங்கள் விவரங்கள் சரிபார்ப்புக்கு சமர்ப்பிக்கப்பட்டுள்ளன." },
+            hi: { title: "स्मार्ट ग्रिड पोर्टल", btn_cust: "ग्राहक पोर्टल", btn_off: "प्रशासक", lbl_id_cust: "मीटर पहचान संख्या", lbl_id_admin: "प्रशासक आईडी", ph_id: "आईडी दर्ज करें", lbl_pin_cust: "खाता पासवर्ड", lbl_pin_admin: "सुरक्षा पिन", ph_pin: "पासवर्ड दर्ज करें", btn_forgot: "पासवर्ड भूल गए?", btn_login: "प्रमाणित करें", btn_reg: "नए कनेक्शन के लिए आवेदन करें", err_empty: "सभी फ़ील्ड आवश्यक हैं।", err_invalid_cust: "अमान्य क्रेडेंशियल या अनुमोदन लंबित है।", err_invalid_admin: "प्राधिकरण विफल।", prompt_reset_id: "पासवर्ड रीसेट करने के लिए मीटर आईडी दर्ज करें:", alert_not_found: "सिस्टम में रिकॉर्ड नहीं मिला।", prompt_otp: "पंजीकृत मोबाइल पर ओटीपी भेजा गया है।\n\n(Simulation: OTP 9999)\n\nओटीपी दर्ज करें:", prompt_new_pass: "प्रमाणीकरण सफल।\n\nनया पासवर्ड दर्ज करें:", alert_reset_cancel: "पासवर्ड रीसेट प्रक्रिया निरस्त।", alert_reset_success: "पासवर्ड सफलतापूर्वक अपडेट किया गया।", alert_otp_fail: "अमान्य ओटीपी।", title_apply: "नया कनेक्शन आवेदन", desc_apply: "मीटर आवंटन के लिए आधिकारिक विवरण प्रदान करें।", lbl_name: "पूरा कानूनी नाम", lbl_phone: "पंजीकृत मोबाइल नंबर", lbl_id_proof: "आधिकारिक आईडी (आधार / पैन)", lbl_addr: "स्थापना का पता", btn_submit_app: "आवेदन जमा करें", btn_cancel: "रद्द करें / वापस जाएं", ph_name: "पूरा नाम दर्ज करें", ph_phone: "10-अंकीय संख्या", ph_id_proof: "आईडी दर्ज करें", ph_addr: "पूरा पता दर्ज करें", err_reg_empty: "अपूर्ण फॉर्म। कृपया सभी फ़ील्ड भरें।", prompt_new_pass_req: "अपने भविष्य के डैशबोर्ड के लिए पासवर्ड असाइन करें:", msg_app_submitted: "आवेदन दर्ज किया गया\n\nआधिकारिक सत्यापन के लिए आपका विवरण जमा कर दिया गया है।" }
+        };
 
-        if (!localStorage.getItem("customerDB")) {
-            localStorage.setItem("customerDB", JSON.stringify({
-                "House_001": "1234",
-                "House_002": "5678",
-                "House_003": "abcd"
-            }));
-        }
-
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('error-text').style.display = 'none';
-            document.getElementById('input-id').value = '';
-            document.getElementById('input-pin').value = '';
-
-            if (mode === 'customer') {
-                document.getElementById('btn-customer').classList.add('active');
-                document.getElementById('btn-officer').classList.remove('active');
-                document.getElementById('label-id').innerText = 'Meter ID (e.g., House_001)';
-                document.getElementById('label-pin').innerText = 'Customer Password';
-                document.getElementById('forgot-btn').style.display = 'block';
-            } else {
-                document.getElementById('btn-officer').classList.add('active');
-                document.getElementById('btn-customer').classList.remove('active');
-                document.getElementById('label-id').innerText = 'Officer Admin ID';
-                document.getElementById('label-pin').innerText = 'Secure Master PIN';
-                document.getElementById('forgot-btn').style.display = 'none';
-            }
-        }
-
-        function handleLogin() {
-            const idVal = document.getElementById('input-id').value.trim();
-            const pinVal = document.getElementById('input-pin').value.trim();
-            const errorText = document.getElementById('error-text');
-            let db = JSON.parse(localStorage.getItem("customerDB"));
-
-            if (idVal === "" || pinVal === "") {
-                errorText.innerText = "Please enter both ID and Password.";
-                errorText.style.display = 'block';
-                return;
-            }
-
-            if (currentMode === 'customer') {
-                if (db[idVal] && db[idVal] === pinVal) {
-                    sessionStorage.setItem("auth_" + idVal, "true");
-                    window.location.href = `customer.html?meter=${idVal}`;
-                } else {
-                    errorText.innerText = "Invalid Meter ID or Password.";
-                    errorText.style.display = 'block';
-                }
-            } else {
-                if (idVal === "eb_admin" && pinVal === "2026") {
-                    sessionStorage.setItem("eb_auth", "true");
-                    window.location.href = "officer.html";
-                } else {
-                    errorText.innerText = "Access Denied. Invalid Admin Credentials.";
-                    errorText.style.display = 'block';
-                }
-            }
-        }
-
-        function forgotPassword() {
-            let u = prompt("Enter your Meter ID to reset your password:");
-            if (!u) return;
-            let db = JSON.parse(localStorage.getItem("customerDB"));
-            if (!db[u]) { alert("❌ Meter ID not found in the system."); return; }
-
-            let otp = prompt(`📱 An OTP has been sent to the registered mobile number for ${u}.\n\n(DEMO OVERRIDE: Your OTP is 9999)\n\nEnter the OTP to continue:`);
-            
-            if (otp === "9999") {
-                let newPass = prompt("✅ OTP Verified!\n\nEnter your NEW password:");
-                if (newPass && newPass.trim() !== "") {
-                    db[u] = newPass.trim();
-                    localStorage.setItem("customerDB", JSON.stringify(db));
-                    alert("🎉 Password reset successfully! You can now log in with your new password.");
-                } else { alert("Password reset cancelled."); }
-            } else { alert("❌ Invalid OTP. Reset cancelled."); }
-        }
+        let currentLang = "en"; let currentMode = 'customer';
+        function changeLanguage() { currentLang = document.getElementById("lang-select").value; document.querySelectorAll("[data-i18n]").forEach(el => { const key = el.getAttribute("data-i18n"); if (translations[currentLang][key]) el.innerText = translations[currentLang][key]; }); document.getElementById('input-id').placeholder = translations[currentLang].ph_id; document.getElementById('input-pin').placeholder = translations[currentLang].ph_pin; document.getElementById('reg-name').placeholder = translations[currentLang].ph_name; document.getElementById('reg-phone').placeholder = translations[currentLang].ph_phone; document.getElementById('reg-id-proof').placeholder = translations[currentLang].ph_id_proof; document.getElementById('reg-addr').placeholder = translations[currentLang].ph_addr; setMode(currentMode); }
+        if (!localStorage.getItem("customerDB")) { localStorage.setItem("customerDB", JSON.stringify({ "House_001": "1234", "House_002": "5678", "House_003": "abcd" })); }
+        function setMode(mode) { currentMode = mode; document.getElementById('error-text').style.display = 'none'; if (mode === 'customer') { document.getElementById('btn-customer').classList.add('active'); document.getElementById('btn-officer').classList.remove('active'); document.getElementById('label-id').innerText = translations[currentLang].lbl_id_cust; document.getElementById('label-pin').innerText = translations[currentLang].lbl_pin_cust; document.getElementById('forgot-btn').style.display = 'block'; document.getElementById('btn-show-register').style.display = 'block'; } else { document.getElementById('btn-officer').classList.add('active'); document.getElementById('btn-customer').classList.remove('active'); document.getElementById('label-id').innerText = translations[currentLang].lbl_id_admin; document.getElementById('label-pin').innerText = translations[currentLang].lbl_pin_admin; document.getElementById('forgot-btn').style.display = 'none'; document.getElementById('btn-show-register').style.display = 'none'; } }
+        function toggleViews(view) { document.getElementById('error-text').style.display = 'none'; if (view === 'register') { document.getElementById('login-section').classList.add('hidden'); document.getElementById('register-section').classList.remove('hidden'); } else { document.getElementById('register-section').classList.add('hidden'); document.getElementById('login-section').classList.remove('hidden'); } }
+        function handleLogin() { const idVal = document.getElementById('input-id').value.trim(); const pinVal = document.getElementById('input-pin').value.trim(); const errorText = document.getElementById('error-text'); let db = JSON.parse(localStorage.getItem("customerDB")); if (idVal === "" || pinVal === "") { errorText.innerText = translations[currentLang].err_empty; errorText.style.display = 'block'; return; } if (currentMode === 'customer') { if (db[idVal] && db[idVal] === pinVal) { sessionStorage.setItem("auth_" + idVal, "true"); window.location.href = `customer.html?meter=${idVal}`; } else { errorText.innerText = translations[currentLang].err_invalid_cust; errorText.style.display = 'block'; } } else { if (idVal === "eb_admin" && pinVal === "2026") { sessionStorage.setItem("eb_auth", "true"); window.location.href = "office.html"; } else { errorText.innerText = translations[currentLang].err_invalid_admin; errorText.style.display = 'block'; } } }
+        function submitApplication() { const name = document.getElementById('reg-name').value.trim(); const phone = document.getElementById('reg-phone').value.trim(); const idProof = document.getElementById('reg-id-proof').value.trim(); const addr = document.getElementById('reg-addr').value.trim(); if (!name || !phone || !idProof || !addr) { alert(translations[currentLang].err_reg_empty); return; } let newPin = prompt(translations[currentLang].prompt_new_pass_req); if (!newPin || newPin.trim() === "") { alert(translations[currentLang].alert_reset_cancel); return; } let pendingApps = JSON.parse(localStorage.getItem("pendingDB") || "[]"); pendingApps.push({ name, phone, idProof, addr, pin: newPin.trim() }); localStorage.setItem("pendingDB", JSON.stringify(pendingApps)); alert(translations[currentLang].msg_app_submitted); document.getElementById('reg-name').value = ""; document.getElementById('reg-phone').value = ""; document.getElementById('reg-id-proof').value = ""; document.getElementById('reg-addr').value = ""; toggleViews('login'); }
+        function forgotPassword() { let u = prompt(translations[currentLang].prompt_reset_id); if (!u) return; let db = JSON.parse(localStorage.getItem("customerDB")); if (!db[u]) { alert(translations[currentLang].alert_not_found); return; } let otpMsg = translations[currentLang].prompt_otp.replace("{u}", u); let otp = prompt(otpMsg); if (otp === "9999") { let newPass = prompt(translations[currentLang].prompt_new_pass); if (newPass && newPass.trim() !== "") { db[u] = newPass.trim(); localStorage.setItem("customerDB", JSON.stringify(db)); alert(translations[currentLang].alert_reset_success); } else { alert(translations[currentLang].alert_reset_cancel); } } else { alert(translations[currentLang].alert_otp_fail); } }
+        changeLanguage(); 
     </script>
 </body>
 </html>
