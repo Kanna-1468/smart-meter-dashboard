@@ -53,11 +53,16 @@
         .custom-input { padding: 10px 12px; width: 60%; max-width: 200px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; margin-right: 10px; box-sizing: border-box;}
         
         .simulation-panel { background-color: #f8fafc; }
-        .prepaid-panel { background-color: #eff6ff; border: 1px solid #bfdbfe; }
+        .prepaid-panel { background-color: #eff6ff; border: 1px solid #bfdbfe; transition: opacity 0.3s; }
+        .mode-panel { background-color: #f5f3ff; border: 1px solid #ddd6fe; }
+        
+        .hidden-element { display: none !important; }
+
         input[type="range"] { accent-color: #2563eb; width: 100%; cursor: pointer; }
 
         .radio-group { margin-top: 15px; font-size: 14px; color: #334155; font-weight: 500; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;}
         .radio-group label { display: block; margin-bottom: 8px; cursor: pointer; }
+        .radio-inline label { display: inline-block; margin-right: 20px; }
 
         @media (max-width: 768px) {
             .top-bar { flex-direction: column; text-align: center; gap: 15px; }
@@ -69,9 +74,7 @@
     </style>
 
     <script>
-        // PWA Service Worker Registration
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-
         const urlParams = new URLSearchParams(window.location.search);
         const currentMeterID = urlParams.get('meter');
         if (!currentMeterID || sessionStorage.getItem("auth_" + currentMeterID) !== "true") { window.location.href = "index.html"; }
@@ -93,7 +96,7 @@
     </div>
     
     <div class="grid">
-        <div class="card wallet">
+        <div class="card wallet hidden-element" id="wallet-card">
             <div class="title wallet" data-i18n="card_wallet">Prepaid Wallet</div>
             <div id="wallet" class="value wallet">Rs. --</div>
         </div>
@@ -105,8 +108,25 @@
         <div class="card"><div class="title" data-i18n="card_relay">Relay Status</div><div id="relay" class="value" style="color:#2563eb;">--</div></div>
     </div>
 
-    <!-- Prepaid & Wallet Configuration -->
-    <div class="controls prepaid-panel">
+    <!-- Mode Selection -->
+    <div class="controls mode-panel">
+        <div class="controls-header" style="color: #6d28d9;" data-i18n="ctrl_mode">Billing Mode Selection</div>
+        <div style="text-align: center;">
+            <div class="radio-group radio-inline">
+                <label>
+                    <input type="radio" name="billing_mode" value="postpaid" onchange="saveBillingMode()"> 
+                    <span data-i18n="opt_postpaid">Postpaid (Standard)</span>
+                </label>
+                <label>
+                    <input type="radio" name="billing_mode" value="prepaid" onchange="saveBillingMode()"> 
+                    <span data-i18n="opt_prepaid">Prepaid Wallet</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prepaid & Wallet Configuration (Hidden by default) -->
+    <div class="controls prepaid-panel hidden-element" id="prepaid-panel">
         <div class="controls-header" style="color: #1e40af;" data-i18n="ctrl_prepaid">Prepaid System Configuration</div>
         <div style="text-align: center;">
             <input type="number" id="recharge-amt" class="custom-input" placeholder="Amount (e.g. 500)">
@@ -162,9 +182,9 @@
 
     <script>
         const translations = {
-            en: { main_title: "Smart Meter Analytics", card_wallet: "Prepaid Wallet", card_v: "Voltage", card_i: "Current", card_p: "Power", card_u: "Units Consumed", card_b: "Accumulated Bill", card_relay: "Relay Status", ctrl_prepaid: "Prepaid System Configuration", btn_recharge: "Recharge Wallet", txt_empty_pref: "If wallet balance reaches Rs. 0.00:", opt_cut: "Disconnect Power Immediately", opt_bill: "Keep Power ON & Generate Pending Bill (Arrears)", ctrl_power: "Primary Appliance Control", btn_on: "Engage Power", btn_off: "Disengage Power", btn_inv: "Download Official Invoice", ctrl_demo: "System Simulator: Billing Cycle Adjustment", txt_sim_input: "Simulated Input:", ctrl_graph: "Live Power (Watts)", ctrl_hist: "7-Day Usage History (kWh)", btn_logout: "Securely Terminate Session" },
-            ta: { main_title: "ஸ்மார்ட் மீட்டர் பகுப்பாய்வு", card_wallet: "ப்ரீபெய்ட் வாலட்", card_v: "மின்னழுத்தம்", card_i: "மின்னோட்டம்", card_p: "மின்சக்தி", card_u: "பயன்படுத்திய யூனிட்கள்", card_b: "மொத்த கட்டணம்", card_relay: "ரிலே நிலை", ctrl_prepaid: "ப்ரீபெய்ட் கட்டமைப்பு", btn_recharge: "ரீசார்ஜ் செய்", txt_empty_pref: "வாலட் இருப்பு ரூ.0 ஐ அடைந்தால்:", opt_cut: "உடனடியாக மின்சாரத்தை துண்டிக்கவும்", opt_bill: "மின்சாரத்தை தொடரவும் & நிலுவை கட்டணத்தை உருவாக்கவும்", ctrl_power: "சாதன மின் கட்டுப்பாடு", btn_on: "பவரை இயக்கு", btn_off: "பவரை நிறுத்து", btn_inv: "ரசீதை பதிவிறக்கு", ctrl_demo: "கணினி உருவகப்படுத்துதல்", txt_sim_input: "உள்ளீடு:", ctrl_graph: "நேரடி மின்சாரம் (Watts)", ctrl_hist: "7-நாள் வரலாறு (kWh)", btn_logout: "அமர்வை முடி" },
-            hi: { main_title: "स्मार्ट मीटर एनालिटिक्स", card_wallet: "प्रीपेड वॉलेट", card_v: "वोल्टेज", card_i: "करंट", card_p: "पावर", card_u: "खपत की गई यूनिट्स", card_b: "कुल बिल", card_relay: "रिले स्थिति", ctrl_prepaid: "प्रीपेड सिस्टम कॉन्फ़िगरेशन", btn_recharge: "वॉलेट रिचार्ज करें", txt_empty_pref: "यदि वॉलेट बैलेंस रु 0 हो जाए:", opt_cut: "बिजली तुरंत काटें", opt_bill: "बिजली चालू रखें और बकाया बिल जनरेट करें", ctrl_power: "उपकरण नियंत्रण", btn_on: "चालू करें", btn_off: "बंद करें", btn_inv: "इनवॉइस डाउनलोड करें", ctrl_demo: "सिम्युलेटर", txt_sim_input: "इनपुट:", ctrl_graph: "लाइव पावर (Watts)", ctrl_hist: "7-दिन का इतिहास (kWh)", btn_logout: "सत्र समाप्त करें" }
+            en: { main_title: "Smart Meter Analytics", card_wallet: "Prepaid Wallet", card_v: "Voltage", card_i: "Current", card_p: "Power", card_u: "Units Consumed", card_b: "Accumulated Bill", card_relay: "Relay Status", ctrl_mode: "Billing Mode Selection", opt_postpaid: "Postpaid (Standard)", opt_prepaid: "Prepaid Wallet", ctrl_prepaid: "Prepaid System Configuration", btn_recharge: "Recharge Wallet", txt_empty_pref: "If wallet balance reaches Rs. 0.00:", opt_cut: "Disconnect Power Immediately", opt_bill: "Keep Power ON & Generate Pending Bill (Arrears)", ctrl_power: "Primary Appliance Control", btn_on: "Engage Power", btn_off: "Disengage Power", btn_inv: "Download Official Invoice", ctrl_demo: "System Simulator: Billing Cycle Adjustment", txt_sim_input: "Simulated Input:", ctrl_graph: "Live Power (Watts)", ctrl_hist: "7-Day Usage History (kWh)", btn_logout: "Securely Terminate Session" },
+            ta: { main_title: "ஸ்மார்ட் மீட்டர் பகுப்பாய்வு", card_wallet: "ப்ரீபெய்ட் வாலட்", card_v: "மின்னழுத்தம்", card_i: "மின்னோட்டம்", card_p: "மின்சக்தி", card_u: "பயன்படுத்திய யூனிட்கள்", card_b: "மொத்த கட்டணம்", card_relay: "ரிலே நிலை", ctrl_mode: "கட்டண முறை தேர்வு", opt_postpaid: "போஸ்ட்பெய்டு (வழக்கமான)", opt_prepaid: "ப்ரீபெய்ட் வாலட்", ctrl_prepaid: "ப்ரீபெய்ட் கட்டமைப்பு", btn_recharge: "ரீசார்ஜ் செய்", txt_empty_pref: "வாலட் இருப்பு ரூ.0 ஐ அடைந்தால்:", opt_cut: "உடனடியாக மின்சாரத்தை துண்டிக்கவும்", opt_bill: "மின்சாரத்தை தொடரவும் & நிலுவை கட்டணத்தை உருவாக்கவும்", ctrl_power: "சாதன மின் கட்டுப்பாடு", btn_on: "பவரை இயக்கு", btn_off: "பவரை நிறுத்து", btn_inv: "ரசீதை பதிவிறக்கு", ctrl_demo: "கணினி உருவகப்படுத்துதல்", txt_sim_input: "உள்ளீடு:", ctrl_graph: "நேரடி மின்சாரம் (Watts)", ctrl_hist: "7-நாள் வரலாறு (kWh)", btn_logout: "அமர்வை முடி" },
+            hi: { main_title: "स्मार्ट मीटर एनालिटिक्स", card_wallet: "प्रीपेड वॉलेट", card_v: "वोल्टेज", card_i: "करंट", card_p: "पावर", card_u: "खपत की गई यूनिट्स", card_b: "कुल बिल", card_relay: "रिले स्थिति", ctrl_mode: "बिलिंग मोड चयन", opt_postpaid: "पोस्टपेड (मानक)", opt_prepaid: "प्रीपेड वॉलेट", ctrl_prepaid: "प्रीपेड सिस्टम कॉन्फ़िगरेशन", btn_recharge: "वॉलेट रिचार्ज करें", txt_empty_pref: "यदि वॉलेट बैलेंस रु 0 हो जाए:", opt_cut: "बिजली तुरंत काटें", opt_bill: "बिजली चालू रखें और बकाया बिल जनरेट करें", ctrl_power: "उपकरण नियंत्रण", btn_on: "चालू करें", btn_off: "बंद करें", btn_inv: "इनवॉइस डाउनलोड करें", ctrl_demo: "सिम्युलेटर", txt_sim_input: "इनपुट:", ctrl_graph: "लाइव पावर (Watts)", ctrl_hist: "7-दिन का इतिहास (kWh)", btn_logout: "सत्र समाप्त करें" }
         };
 
         let currentLang = "en";
@@ -178,20 +198,20 @@
         const firebaseConfig = { apiKey: "AIzaSyBKlLPHQpUqRuMl0MkjEdpd-HFnqoigjNg", databaseURL: "https://smartmeter2026-a884f-default-rtdb.firebaseio.com" };
         firebase.initializeApp(firebaseConfig); const db = firebase.database();
 
-        // 1. Load saved preference from localStorage first, falling back to 'bill'
+        // States
+        let currentBillingMode = localStorage.getItem("billing_mode_" + currentMeterID) || "postpaid";
         let userPrepaidPref = localStorage.getItem("prepaid_pref_" + currentMeterID) || "bill"; 
-        let isPrefInitialized = false;
+        let isUIInitialized = false;
         let rechargeTotal = 0;
         let cutAlertTriggered = false;
 
         // Chart Init
         const ctxPower = document.getElementById('powerChart').getContext('2d');
         const powerChart = new Chart(ctxPower, { type: 'line', data: { labels: [], datasets: [{ label: 'Watts', borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', data: [], fill: true, tension: 0.4 }] }, options: { scales: { x: { display: false }, y: { beginAtZero: true } }, animation: false, plugins: { legend: { display: false } } } });
-
         const ctxHist = document.getElementById('historyChart').getContext('2d');
         const historyChart = new Chart(ctxHist, { type: 'bar', data: { labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Today'], datasets: [{ label: 'kWh', backgroundColor: '#0d9488', borderRadius: 4, data: [0,0,0,0,0,0,0] }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } });
 
-        // 2. Firebase Real-Time Listener
+        // Firebase Listener
         db.ref("CityGrid/" + currentMeterID).on("value", (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -200,76 +220,93 @@
                 document.getElementById("p").innerText = (data.p || 0) + " W"; 
                 document.getElementById("u").innerText = (data.u || 0) + " kWh";
 
-                // Sync recharge and preference
+                // Sync data
                 rechargeTotal = data.recharge_total !== undefined ? data.recharge_total : rechargeTotal;
-                if (data.prepaid_pref) {
-                    userPrepaidPref = data.prepaid_pref;
-                    localStorage.setItem("prepaid_pref_" + currentMeterID, userPrepaidPref);
+                if (data.prepaid_pref) { userPrepaidPref = data.prepaid_pref; localStorage.setItem("prepaid_pref_" + currentMeterID, userPrepaidPref); }
+                if (data.billing_mode) { currentBillingMode = data.billing_mode; localStorage.setItem("billing_mode_" + currentMeterID, currentBillingMode); }
+
+                // Initialize UI radio buttons ONCE
+                if (!isUIInitialized) {
+                    const targetModeRadio = document.querySelector(`input[name="billing_mode"][value="${currentBillingMode}"]`);
+                    if (targetModeRadio) targetModeRadio.checked = true;
+                    
+                    const targetPrefRadio = document.querySelector(`input[name="empty_action"][value="${userPrepaidPref}"]`);
+                    if (targetPrefRadio) targetPrefRadio.checked = true;
+                    
+                    toggleModeUI();
+                    isUIInitialized = true;
                 }
 
-                // ONLY set the radio button ONCE when the page loads
-                if (!isPrefInitialized) {
-                    const targetRadio = document.querySelector(`input[name="empty_action"][value="${userPrepaidPref}"]`);
-                    if (targetRadio) targetRadio.checked = true;
-                    isPrefInitialized = true;
-                }
-
-                // Real-time calculation from live hardware readings
+                // Billing Logic
                 const liveUnits = parseFloat(data.u) || 0;
                 const totalBill = calculateTNEBBill(liveUnits);
-                const effectiveWallet = (rechargeTotal - totalBill).toFixed(2);
+                
+                if (currentBillingMode === "prepaid") {
+                    const effectiveWallet = (rechargeTotal - totalBill).toFixed(2);
+                    let wEl = document.getElementById("wallet");
+                    wEl.innerText = "Rs. " + effectiveWallet;
+                    wEl.style.color = parseFloat(effectiveWallet) <= 0 ? "#dc2626" : "#16a34a";
 
-                let wEl = document.getElementById("wallet");
-                wEl.innerText = "Rs. " + effectiveWallet;
-                wEl.style.color = parseFloat(effectiveWallet) <= 0 ? "#dc2626" : "#16a34a";
+                    if (parseFloat(effectiveWallet) <= 0 && userPrepaidPref === 'cut') {
+                        if (data.relay !== "OFF" && !cutAlertTriggered) {
+                            cutAlertTriggered = true;
+                            sendCommand('off');
+                            db.ref("CityGrid/" + currentMeterID).update({ relay: "OFF" });
+                            alert("PREPAID ALERT: Wallet depleted. Power disconnected.");
+                        }
+                    } else if (parseFloat(effectiveWallet) > 0) {
+                        cutAlertTriggered = false; // Reset lock if recharged
+                    }
+                }
 
                 document.getElementById("b").innerText = "Rs. " + totalBill.toFixed(2);
-
-                // Check auto-disconnect condition during live testing
-                if (parseFloat(effectiveWallet) <= 0 && userPrepaidPref === 'cut') {
-                    if (data.relay !== "OFF" && !cutAlertTriggered) {
-                        cutAlertTriggered = true;
-                        sendCommand('off');
-                        db.ref("CityGrid/" + currentMeterID).update({ relay: "OFF" });
-                        alert("PREPAID ALERT: Wallet depleted. Power disconnected.");
-                    }
-                } else if (parseFloat(effectiveWallet) > 0) {
-                    cutAlertTriggered = false; // Reset lock if recharged
-                }
 
                 // Relay UI
                 const relayEl = document.getElementById("relay"); 
                 relayEl.innerText = data.relay || "--";
                 relayEl.style.color = (data.relay === "ON") ? "#16a34a" : "#dc2626";
 
-                // Live Power Graph Update
+                // Graph Updates
                 const now = new Date().toLocaleTimeString(); 
                 powerChart.data.labels.push(now); 
                 powerChart.data.datasets[0].data.push(data.p || 0);
-                if (powerChart.data.labels.length > 15) { 
-                    powerChart.data.labels.shift(); 
-                    powerChart.data.datasets[0].data.shift(); 
-                }
+                if (powerChart.data.labels.length > 15) { powerChart.data.labels.shift(); powerChart.data.datasets[0].data.shift(); }
                 powerChart.update();
-
-                // History Graph Update
-                if (data.history) { 
-                    historyChart.data.datasets[0].data = data.history; 
-                    historyChart.update(); 
-                }
+                if (data.history) { historyChart.data.datasets[0].data = data.history; historyChart.update(); }
             }
         });
 
-        // 3. User Preference Handler
+        // UI toggles and preference saves
+        function toggleModeUI() {
+            const walletCard = document.getElementById("wallet-card");
+            const prepaidPanel = document.getElementById("prepaid-panel");
+            if (currentBillingMode === "prepaid") {
+                walletCard.classList.remove("hidden-element");
+                prepaidPanel.classList.remove("hidden-element");
+            } else {
+                walletCard.classList.add("hidden-element");
+                prepaidPanel.classList.add("hidden-element");
+            }
+        }
+
+        function saveBillingMode() {
+            const selected = document.querySelector('input[name="billing_mode"]:checked');
+            if (!selected) return;
+            currentBillingMode = selected.value;
+            localStorage.setItem("billing_mode_" + currentMeterID, currentBillingMode);
+            db.ref("CityGrid/" + currentMeterID).update({ billing_mode: currentBillingMode });
+            toggleModeUI();
+            
+            // Re-trigger calculation 
+            let currentUnits = parseFloat(document.getElementById("demoUnitsVal").innerText) || parseFloat(document.getElementById("u").innerText) || 0;
+            updateDemoUnits(currentUnits);
+        }
+
         function savePrepaidPref() {
             const selected = document.querySelector('input[name="empty_action"]:checked');
             if (!selected) return;
-            
             userPrepaidPref = selected.value;
-            // Instantly save to local browser storage
             localStorage.setItem("prepaid_pref_" + currentMeterID, userPrepaidPref);
-            
-            // Persist to Firebase without blocking the browser with an alert
             db.ref("CityGrid/" + currentMeterID).update({ prepaid_pref: userPrepaidPref });
         }
 
@@ -277,7 +314,6 @@
             let amt = parseFloat(document.getElementById("recharge-amt").value);
             if(isNaN(amt) || amt <= 0) { alert("Enter a valid recharge amount."); return; }
             rechargeTotal += amt;
-            // Force an update to the dashboard state
             let currentUnits = parseFloat(document.getElementById("demoUnitsVal").innerText) || parseFloat(document.getElementById("u").innerText) || 0;
             updateDemoUnits(currentUnits);
             document.getElementById("recharge-amt").value = "";
@@ -285,9 +321,7 @@
             alert("Successfully recharged Rs. " + amt);
         }
 
-        function sendCommand(cmd) { 
-            fetch('https://ntfy.sh/prakathees_meter_' + currentMeterID, { method: 'POST', body: cmd, headers: { 'Content-Type': 'text/plain' }}); 
-        }
+        function sendCommand(cmd) { fetch('https://ntfy.sh/prakathees_meter_' + currentMeterID, { method: 'POST', body: cmd, headers: { 'Content-Type': 'text/plain' }}); }
 
         function calculateTNEBBill(units) {
             let u = parseFloat(units); if (isNaN(u) || u <= 0) return 0;
@@ -311,43 +345,36 @@
             let u = parseFloat(units);
             let totalBill = calculateTNEBBill(u); 
             
-            // Prepaid Calculations
-            let effectiveWallet = (rechargeTotal - totalBill).toFixed(2);
             let displayBill = totalBill.toFixed(2);
             let targetRelay = document.getElementById("relay").innerText; 
+            let effectiveWallet = 0;
 
-            if (effectiveWallet <= 0) {
-                if (userPrepaidPref === 'cut') {
-                    targetRelay = "OFF";
-                    if(!cutAlertTriggered) {
-                        sendCommand('off');
-                        alert("WALLET EMPTY: Auto-Disconnect engaged. Power supply halted.");
-                        cutAlertTriggered = true;
+            if (currentBillingMode === "prepaid") {
+                effectiveWallet = (rechargeTotal - totalBill).toFixed(2);
+                if (effectiveWallet <= 0) {
+                    if (userPrepaidPref === 'cut') {
+                        targetRelay = "OFF";
+                        if(!cutAlertTriggered) { sendCommand('off'); alert("WALLET EMPTY: Auto-Disconnect engaged."); cutAlertTriggered = true; }
+                    } else {
+                        targetRelay = "ON"; displayBill = Math.abs(effectiveWallet).toFixed(2);
                     }
-                } else {
-                    targetRelay = "ON";
-                    displayBill = Math.abs(effectiveWallet).toFixed(2); // Show as negative/pending
-                }
+                } else { cutAlertTriggered = false; }
             } else {
-                cutAlertTriggered = false; // Reset if they are back in positive
+                cutAlertTriggered = false; // Reset lock for postpaid
             }
 
-            // Simulate generating 7 days of historical data for the graph
             let hData = [ (u*0.05).toFixed(1), (u*0.1).toFixed(1), (u*0.15).toFixed(1), (u*0.12).toFixed(1), (u*0.2).toFixed(1), (u*0.18).toFixed(1), (u*0.2).toFixed(1) ];
 
             db.ref("CityGrid/" + currentMeterID).update({ 
-                u: u, 
-                b: displayBill,
-                wallet: effectiveWallet,
-                recharge_total: rechargeTotal,
-                relay: targetRelay,
-                history: hData
+                u: u, b: displayBill, wallet: (currentBillingMode === "prepaid") ? effectiveWallet : 0,
+                recharge_total: rechargeTotal, relay: targetRelay, history: hData
             }); 
         }
 
         function generateInvoice() {
             const date = new Date().toLocaleDateString(); const units = document.getElementById("u").innerText; const bill = document.getElementById("b").innerText;
-            const invoiceHTML = `<div style="padding: 40px; font-family: sans-serif; color: #1e293b; background: #fff; width: 600px;"><div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;"><h1 style="color: #1e3a8a;">OFFICIAL ELECTRICITY BOARD</h1></div><table style="width: 100%; margin-bottom: 30px;"><tr><td><strong>Account ID:</strong> ${currentMeterID}</td><td style="text-align: right;"><strong>Date:</strong> ${date}</td></tr></table><table style="width: 100%; border-collapse: collapse;"><tr style="background: #f8fafc;"><th style="padding: 12px; border: 1px solid #cbd5e1; text-align: left;">Line Item</th><th style="padding: 12px; border: 1px solid #cbd5e1; text-align: right;">Value</th></tr><tr><td style="padding: 12px; border: 1px solid #cbd5e1;">Energy Consumed</td><td style="padding: 12px; border: 1px solid #cbd5e1; text-align: right;">${units}</td></tr><tr><td style="padding: 12px; border: 1px solid #cbd5e1; font-weight: bold;">Amount</td><td style="padding: 12px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${bill}</td></tr></table></div>`;
+            const modeText = (currentBillingMode === "prepaid") ? "Prepaid Account" : "Postpaid Account";
+            const invoiceHTML = `<div style="padding: 40px; font-family: sans-serif; color: #1e293b; background: #fff; width: 600px;"><div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;"><h1 style="color: #1e3a8a;">OFFICIAL ELECTRICITY BOARD</h1><p>${modeText}</p></div><table style="width: 100%; margin-bottom: 30px;"><tr><td><strong>Account ID:</strong> ${currentMeterID}</td><td style="text-align: right;"><strong>Date:</strong> ${date}</td></tr></table><table style="width: 100%; border-collapse: collapse;"><tr style="background: #f8fafc;"><th style="padding: 12px; border: 1px solid #cbd5e1; text-align: left;">Line Item</th><th style="padding: 12px; border: 1px solid #cbd5e1; text-align: right;">Value</th></tr><tr><td style="padding: 12px; border: 1px solid #cbd5e1;">Energy Consumed</td><td style="padding: 12px; border: 1px solid #cbd5e1; text-align: right;">${units}</td></tr><tr><td style="padding: 12px; border: 1px solid #cbd5e1; font-weight: bold;">Amount</td><td style="padding: 12px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${bill}</td></tr></table></div>`;
             html2pdf().set({ filename: `Invoice_${currentMeterID}.pdf` }).from(invoiceHTML).save();
         }
     </script>
