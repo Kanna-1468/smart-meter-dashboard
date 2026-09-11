@@ -154,7 +154,8 @@
     <div class="controls simulation-panel">
         <div class="controls-header" data-i18n="ctrl_demo">System Simulator: Billing Cycle Adjustment</div>
         <div style="text-align: center;">
-            <input type="range" id="demoUnitsSlider" min="0" max="1200" value="0" oninput="updateDemoUnits(this.value)">
+            <!-- Added the true flag to the oninput event so it knows you used the slider -->
+            <input type="range" id="demoUnitsSlider" min="0" max="1200" value="0" oninput="updateDemoUnits(this.value, true)">
             <p style="font-size: 13px; color: #64748b; margin-top: 10px;"><span data-i18n="txt_sim_input">Simulated Input:</span> <span id="demoUnitsVal" style="color: #1e3a8a; font-weight: bold; font-size: 15px;">0</span> kWh</p>
         </div>
     </div>
@@ -210,6 +211,7 @@
         db.ref("CityGrid/" + currentMeterID).on("value", (snapshot) => {
             const data = snapshot.val();
             if (data) {
+                // Ensure real hardware values are displayed correctly
                 document.getElementById("v").innerText = (data.v || 0) + " V"; 
                 document.getElementById("i").innerText = (data.i || 0) + " A";
                 document.getElementById("p").innerText = (data.p || 0) + " W"; 
@@ -232,7 +234,7 @@
                     isUIInitialized = true;
                 }
 
-                // Billing Logic
+                // Billing Logic - Calculated dynamically from the live hardware units!
                 const liveUnits = parseFloat(data.u) || 0;
                 const totalBill = calculateTNEBBill(liveUnits);
                 
@@ -261,7 +263,7 @@
                 relayEl.innerText = data.relay || "--";
                 relayEl.style.color = (data.relay === "ON") ? "#16a34a" : "#dc2626";
 
-                // Graph Updates
+                // Graph Updates (using real hardware power)
                 const now = new Date().toLocaleTimeString(); 
                 powerChart.data.labels.push(now); 
                 powerChart.data.datasets[0].data.push(data.p || 0);
@@ -292,9 +294,9 @@
             db.ref("CityGrid/" + currentMeterID).update({ billing_mode: currentBillingMode });
             toggleModeUI();
             
-            // Re-trigger calculation 
-            let currentUnits = parseFloat(document.getElementById("demoUnitsVal").innerText) || parseFloat(document.getElementById("u").innerText) || 0;
-            updateDemoUnits(currentUnits);
+            // Re-trigger calculation without overriding real Watts
+            let currentUnits = parseFloat(document.getElementById("u").innerText) || 0;
+            updateDemoUnits(currentUnits, false);
         }
 
         function savePrepaidPref() {
@@ -309,8 +311,11 @@
             let amt = parseFloat(document.getElementById("recharge-amt").value);
             if(isNaN(amt) || amt <= 0) { alert("Enter a valid recharge amount."); return; }
             rechargeTotal += amt;
-            let currentUnits = parseFloat(document.getElementById("demoUnitsVal").innerText) || parseFloat(document.getElementById("u").innerText) || 0;
-            updateDemoUnits(currentUnits);
+            
+            // Re-trigger calculation without overriding real Watts
+            let currentUnits = parseFloat(document.getElementById("u").innerText) || 0;
+            updateDemoUnits(currentUnits, false);
+            
             document.getElementById("recharge-amt").value = "";
             cutAlertTriggered = false; 
             alert("Successfully recharged Rs. " + amt);
@@ -335,8 +340,8 @@
             return bill;
         }
 
-        function updateDemoUnits(units) { 
-            document.getElementById("demoUnitsVal").innerText = units; 
+        // Updated function isolates the simulator from live hardware
+        function updateDemoUnits(units, isFromSlider = false) { 
             let u = parseFloat(units);
             let totalBill = calculateTNEBBill(u); 
             
@@ -344,21 +349,11 @@
             let targetRelay = document.getElementById("relay").innerText; 
             let effectiveWallet = 0;
 
-            // Generate Simulated Hardware Data for presentation purposes
-            let simWatts = (u > 0) ? Math.floor(Math.random() * 300) + Math.floor(u * 1.5) : 0;
-            let simCurrent = (simWatts > 0) ? (simWatts / 230).toFixed(2) : 0;
-            let simVoltage = (u > 0) ? (230 + Math.floor(Math.random() * 11) - 5) : 0;
-
             if (currentBillingMode === "prepaid") {
                 effectiveWallet = (rechargeTotal - totalBill).toFixed(2);
                 if (effectiveWallet <= 0) {
                     if (userPrepaidPref === 'cut') {
                         targetRelay = "OFF";
-                        
-                        // Force live power to 0 if the relay cuts off!
-                        simWatts = 0; 
-                        simCurrent = 0;
-                        
                         if(!cutAlertTriggered) { sendCommand('off'); alert("WALLET EMPTY: Auto-Disconnect engaged."); cutAlertTriggered = true; }
                     } else {
                         targetRelay = "ON"; displayBill = Math.abs(effectiveWallet).toFixed(2);
@@ -368,21 +363,33 @@
                 cutAlertTriggered = false; // Reset lock for postpaid
             }
 
-            // Simulate 7 days of historical data for the bar graph
-            let hData = [ (u*0.05).toFixed(1), (u*0.1).toFixed(1), (u*0.15).toFixed(1), (u*0.12).toFixed(1), (u*0.2).toFixed(1), (u*0.18).toFixed(1), (u*0.2).toFixed(1) ];
-
-            // Push ALL data to Firebase
-            db.ref("CityGrid/" + currentMeterID).update({ 
-                u: u, 
+            let payload = { 
                 b: displayBill, 
                 wallet: (currentBillingMode === "prepaid") ? effectiveWallet : 0,
                 recharge_total: rechargeTotal, 
-                relay: targetRelay, 
-                history: hData,
-                p: simWatts,
-                i: simCurrent,
-                v: simVoltage
-            }); 
+                relay: targetRelay 
+            };
+
+            // ONLY push fake simulator data if you actually used the slider!
+            // If you recharge the wallet or switch modes, it leaves the hardware Watts alone.
+            if (isFromSlider) {
+                document.getElementById("demoUnitsVal").innerText = units; 
+                let simWatts = (u > 0) ? Math.floor(Math.random() * 300) + Math.floor(u * 1.5) : 0;
+                let simCurrent = (simWatts > 0) ? (simWatts / 230).toFixed(2) : 0;
+                let simVoltage = (u > 0) ? (230 + Math.floor(Math.random() * 11) - 5) : 0;
+
+                if (targetRelay === "OFF") { simWatts = 0; simCurrent = 0; }
+
+                let hData = [ (u*0.05).toFixed(1), (u*0.1).toFixed(1), (u*0.15).toFixed(1), (u*0.12).toFixed(1), (u*0.2).toFixed(1), (u*0.18).toFixed(1), (u*0.2).toFixed(1) ];
+                
+                payload.u = u;
+                payload.p = simWatts;
+                payload.i = simCurrent;
+                payload.v = simVoltage;
+                payload.history = hData;
+            }
+
+            db.ref("CityGrid/" + currentMeterID).update(payload); 
         }
 
         function generateInvoice() {
