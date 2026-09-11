@@ -6,7 +6,7 @@
     <title>Customer Service Portal</title>
     
     <!-- PWA Links -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1e3a8a">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,17 +26,13 @@
         
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; max-width: 1000px; margin: 0 auto 20px auto; }
         .card { background-color: #ffffff; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); text-align: center; }
-        .card.special { background-color: #f0fdf4; border: 1px solid #bbf7d0; } 
         .card.wallet { background-color: #eff6ff; border: 1px solid #bfdbfe; }
         
         .title { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-        .title.special { color: #166534; }
         .title.wallet { color: #1e40af; }
         
         .value { font-size: 26px; font-weight: bold; margin-top: 8px; color: #0f172a; }
         .value.warning { color: #dc2626; }
-        .value.lock { color: #d97706; }
-        .value.special { color: #15803d; }
         .value.wallet { color: #1d4ed8; }
         
         .controls { margin: 20px auto; max-width: 1000px; padding: 20px; background-color: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); box-sizing: border-box;}
@@ -48,7 +44,6 @@
         .btn-off { background-color: #dc2626; }
         .btn-warn { background-color: #f59e0b; color: #fff; }
         .btn-primary { background-color: #2563eb; }
-        .btn-danger { background-color: #991b1b; width: 100%; max-width: 300px; margin-top: 15px; }
         .btn-pdf { background-color: #2563eb; width: 100%; max-width: 300px; margin-top: 15px; }
         .btn-logout { background-color: #475569; padding: 10px 16px; border-radius: 4px; margin-top: 20px; width: 100%; max-width: 300px; }
         
@@ -183,7 +178,9 @@
         const firebaseConfig = { apiKey: "AIzaSyBKlLPHQpUqRuMl0MkjEdpd-HFnqoigjNg", databaseURL: "https://smartmeter2026-a884f-default-rtdb.firebaseio.com" };
         firebase.initializeApp(firebaseConfig); const db = firebase.database();
 
-        let userPrepaidPref = "bill"; 
+        // 1. Load saved preference from localStorage first, falling back to 'bill'
+        let userPrepaidPref = localStorage.getItem("prepaid_pref_" + currentMeterID) || "bill"; 
+        let isPrefInitialized = false;
         let rechargeTotal = 0;
         let cutAlertTriggered = false;
 
@@ -194,46 +191,86 @@
         const ctxHist = document.getElementById('historyChart').getContext('2d');
         const historyChart = new Chart(ctxHist, { type: 'bar', data: { labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Today'], datasets: [{ label: 'kWh', backgroundColor: '#0d9488', borderRadius: 4, data: [0,0,0,0,0,0,0] }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } });
 
-        // Firebase Listener
+        // 2. Firebase Real-Time Listener
         db.ref("CityGrid/" + currentMeterID).on("value", (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                document.getElementById("v").innerText = data.v + " V"; document.getElementById("i").innerText = data.i + " A";
-                document.getElementById("p").innerText = data.p + " W"; document.getElementById("u").innerText = data.u + " kWh";
-                document.getElementById("b").innerText = "Rs. " + data.b;
-                
-                // Wallet Display Logic
-                rechargeTotal = data.recharge_total || 0;
-                userPrepaidPref = data.prepaid_pref || "bill";
-                
-                let wEl = document.getElementById("wallet");
-                if(data.wallet !== undefined) {
-                    wEl.innerText = "Rs. " + data.wallet;
-                    if(parseFloat(data.wallet) <= 0) { wEl.style.color = "#dc2626"; } else { wEl.style.color = "#16a34a"; }
+                document.getElementById("v").innerText = (data.v || 0) + " V"; 
+                document.getElementById("i").innerText = (data.i || 0) + " A";
+                document.getElementById("p").innerText = (data.p || 0) + " W"; 
+                document.getElementById("u").innerText = (data.u || 0) + " kWh";
+
+                // Sync recharge and preference
+                rechargeTotal = data.recharge_total !== undefined ? data.recharge_total : rechargeTotal;
+                if (data.prepaid_pref) {
+                    userPrepaidPref = data.prepaid_pref;
+                    localStorage.setItem("prepaid_pref_" + currentMeterID, userPrepaidPref);
                 }
 
-                // Update Radio Buttons
-                document.querySelector(`input[name="empty_action"][value="${userPrepaidPref}"]`).checked = true;
+                // ONLY set the radio button ONCE when the page loads
+                if (!isPrefInitialized) {
+                    const targetRadio = document.querySelector(`input[name="empty_action"][value="${userPrepaidPref}"]`);
+                    if (targetRadio) targetRadio.checked = true;
+                    isPrefInitialized = true;
+                }
 
-                // Relay status styling
-                const relayEl = document.getElementById("relay"); relayEl.innerText = data.relay;
-                if(data.relay === "ON") relayEl.style.color = "#16a34a"; else relayEl.style.color = "#dc2626";
+                // Real-time calculation from live hardware readings
+                const liveUnits = parseFloat(data.u) || 0;
+                const totalBill = calculateTNEBBill(liveUnits);
+                const effectiveWallet = (rechargeTotal - totalBill).toFixed(2);
+
+                let wEl = document.getElementById("wallet");
+                wEl.innerText = "Rs. " + effectiveWallet;
+                wEl.style.color = parseFloat(effectiveWallet) <= 0 ? "#dc2626" : "#16a34a";
+
+                document.getElementById("b").innerText = "Rs. " + totalBill.toFixed(2);
+
+                // Check auto-disconnect condition during live testing
+                if (parseFloat(effectiveWallet) <= 0 && userPrepaidPref === 'cut') {
+                    if (data.relay !== "OFF" && !cutAlertTriggered) {
+                        cutAlertTriggered = true;
+                        sendCommand('off');
+                        db.ref("CityGrid/" + currentMeterID).update({ relay: "OFF" });
+                        alert("PREPAID ALERT: Wallet depleted. Power disconnected.");
+                    }
+                } else if (parseFloat(effectiveWallet) > 0) {
+                    cutAlertTriggered = false; // Reset lock if recharged
+                }
+
+                // Relay UI
+                const relayEl = document.getElementById("relay"); 
+                relayEl.innerText = data.relay || "--";
+                relayEl.style.color = (data.relay === "ON") ? "#16a34a" : "#dc2626";
 
                 // Live Power Graph Update
                 const now = new Date().toLocaleTimeString(); 
-                powerChart.data.labels.push(now); powerChart.data.datasets[0].data.push(data.p);
-                if (powerChart.data.labels.length > 15) { powerChart.data.labels.shift(); powerChart.data.datasets[0].data.shift(); }
+                powerChart.data.labels.push(now); 
+                powerChart.data.datasets[0].data.push(data.p || 0);
+                if (powerChart.data.labels.length > 15) { 
+                    powerChart.data.labels.shift(); 
+                    powerChart.data.datasets[0].data.shift(); 
+                }
                 powerChart.update();
 
                 // History Graph Update
-                if(data.history) { historyChart.data.datasets[0].data = data.history; historyChart.update(); }
+                if (data.history) { 
+                    historyChart.data.datasets[0].data = data.history; 
+                    historyChart.update(); 
+                }
             }
         });
 
+        // 3. User Preference Handler
         function savePrepaidPref() {
-            let pref = document.querySelector('input[name="empty_action"]:checked').value;
-            db.ref("CityGrid/" + currentMeterID).update({ prepaid_pref: pref });
-            alert("Preference saved. System will " + (pref==='cut' ? "disconnect power" : "generate arrears") + " when wallet is empty.");
+            const selected = document.querySelector('input[name="empty_action"]:checked');
+            if (!selected) return;
+            
+            userPrepaidPref = selected.value;
+            // Instantly save to local browser storage
+            localStorage.setItem("prepaid_pref_" + currentMeterID, userPrepaidPref);
+            
+            // Persist to Firebase without blocking the browser with an alert
+            db.ref("CityGrid/" + currentMeterID).update({ prepaid_pref: userPrepaidPref });
         }
 
         function rechargeWallet() {
@@ -256,10 +293,15 @@
             let u = parseFloat(units); if (isNaN(u) || u <= 0) return 0;
             let bill = 0;
             if (u <= 500) {
-                if (u <= 200) bill = 0; else if (u <= 400) bill = (u - 200) * 4.70; else bill = (200 * 4.70) + ((u - 400) * 6.30);
+                if (u <= 200) bill = 0; 
+                else if (u <= 400) bill = (u - 200) * 4.70; 
+                else bill = (200 * 4.70) + ((u - 400) * 6.30);
             } else {
                 let base = (300 * 4.70) + (100 * 6.30); 
-                if (u <= 600) bill = base + ((u - 500) * 8.40); else if (u <= 800) bill = base + (100 * 8.40) + ((u - 600) * 9.45); else if (u <= 1000) bill = base + (100 * 8.40) + (200 * 9.45) + ((u - 800) * 10.50); else bill = base + (100 * 8.40) + (200 * 9.45) + (200 * 10.50) + ((u - 1000) * 11.55);
+                if (u <= 600) bill = base + ((u - 500) * 8.40); 
+                else if (u <= 800) bill = base + (100 * 8.40) + ((u - 600) * 9.45); 
+                else if (u <= 1000) bill = base + (100 * 8.40) + (200 * 9.45) + ((u - 800) * 10.50); 
+                else bill = base + (100 * 8.40) + (200 * 9.45) + (200 * 10.50) + ((u - 1000) * 11.55);
             }
             return bill;
         }
