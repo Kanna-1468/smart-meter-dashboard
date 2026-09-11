@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Customer Service Portal</title>
     
-    <!-- PWA Links -->
-    <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#1e3a8a">
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -74,7 +70,6 @@
     </style>
 
     <script>
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
         const urlParams = new URLSearchParams(window.location.search);
         const currentMeterID = urlParams.get('meter');
         if (!currentMeterID || sessionStorage.getItem("auth_" + currentMeterID) !== "true") { window.location.href = "index.html"; }
